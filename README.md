@@ -26,7 +26,11 @@ You can set sla options and sla value to each virtual machine via ```test.sh``` 
 GoS is loadable kernel model independent of kernel version.
 GoS can be installed both manually and automatically through scripts.
 
-#### MANUL INSTALL
+#### AUTOMATIC INSTALL
+```sh
+sudo ./set.sh
+```
+#### MANUAL INSTALL
 1. make in the GoS directory
 ```sh
 make
@@ -44,11 +48,6 @@ echo noop > /sys/block/sdc/queue/scheduler
 rmmod oios-iosched
 insmod oios-iosched.ko && echo oios > /sys/block/sdc/queue/scheduler
 echo 1 > /sys/block/sdc/queue/nomerges
-```
-
-#### AUTOMATIC INSTALL
-```sh
-sudo ./set.sh
 ```
 
 ### HOW TO USE
