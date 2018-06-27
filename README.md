@@ -84,12 +84,14 @@ First, edit your performance requirements fields (sla_option, sla_vlaue) in ```t
 * sla_optaion: b_bw-require I/O bandwidth (B), c_usage-require CPU utilization (%, 1 core = 100%)
 * sal_value: bandwidth in B or CPU utilization
 
-for example, if you want to guarantee SSD I/O bandwidth of vm 1 to 100MB, you hava to set sla_option to b_bw and sla_value to 100000
+for example, if you want to guarantee SSD I/O bandwidth of vm 1 to 100MB and CPU utilization of vm 2 to 200% (2 cores), 
+you hava to set sla_option, sla_value of vm1 as b_bw, 100000 and c_usage, 200 for sla_option and sla_valule of vm 2
+
+##### test.sh
 ```sh
+#!/bin/bash
+
 ./insert_target_vm.sh vm1 b_bw 100000
-```
-if you want to guarantee CPU utilization of vm 2 to 200% (2 cores), you have to set sla_option to c_usage and sla_value to 200
-```sh
 ./insert_target_vm.sh vm2 c_usage 200
 ```
 
