@@ -126,10 +126,10 @@ This module supports work-conserving.
 
 install scheduling module 
    
-	- "vif" folder has a module source code, header file, Makefile.
-	- change current directory to "vif" folder and compile a module using "make". 
-	- Before typing ```insmod vif.ko```, you have to start virtual machines because this module requires vhost_net module.
-	- When compilation is done, you would get a loadable kernel module "vif.ko".
+* "vif" folder has a module source code, header file, Makefile.
+* change current directory to "vif" folder and compile a module using "make". 
+* Before typing ```insmod vif.ko```, you have to start virtual machines because this module requires vhost_net module.
+* When compilation is done, you would get a loadable kernel module "vif.ko".
 			```insmod vif.ko```
 
 ### HOW TO USE 
