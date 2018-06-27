@@ -4,10 +4,11 @@
 #include <linux/proc_fs.h>
 #include <linux/list.h>
 #include <linux/string.h>
-#include<linux/kvm_host.h>
-#include<linux/sched.h>
-#include<../../linux-4.4.41/kernel/sched/sched.h>
+#include <linux/kvm_host.h>
+#include <linux/sched.h>
+
 #include "common.h"
+
 struct proc_dir_vif{
 	char name[10];
 	int id;
@@ -176,7 +177,6 @@ static void credit_accounting(unsigned long data){
 	iter=next=NULL;
 	temp_vif=next_vif=NULL;
 	
-	
 	int cpu = smp_processor_id();
 	WARN_ON(cpu != data);	
 
@@ -198,10 +198,10 @@ static void credit_accounting(unsigned long data){
 //		temp_vif->remaining_credit += credit_fair;
 		temp_vif->remaining_credit = credit_fair;
 #ifdef CPU_CONTROL
-		credit_used=temp_vif->used_credit;
+		//credit_used=temp_vif->used_credit;
 			/* check required performance is satisfied */
-		if(credit_used!=0 && credit_used < credit_fair)	
-			schedule_work(&ires_work);
+		//if(credit_used!=0 && credit_used < credit_fair)	
+		//	schedule_work(&ires_work);
 #endif
 		if(temp_vif->min_credit!=0 || temp_vif->max_credit!=0){
 			if(temp_vif->min_credit!=0 && temp_vif->remaining_credit < temp_vif->min_credit){
@@ -307,6 +307,7 @@ static ssize_t vif_write(struct file *file, const char __user* user_buffer, size
 		goto out;
         }
 #endif	
+out:
 	return count;
 	
 }
@@ -427,11 +428,13 @@ static int __init vif_init(void)
 		idx++;
         }
 	cpu	= smp_processor_id();
-	setup_timer(&credit_allocator->monitor_timer, ancs_monitoring, cpu);
-	setup_timer(&credit_allocator->account_timer, credit_accounting, cpu );
 
-	mod_timer(&credit_allocator->monitor_timer, jiffies + msecs_to_jiffies(1000));
+	setup_timer(&credit_allocator->account_timer, credit_accounting, cpu );
 	mod_timer(&credit_allocator->account_timer, jiffies + msecs_to_jiffies(50));
+#ifdef CPU_CONTROL
+	setup_timer(&credit_allocator->monitor_timer, ancs_monitoring, cpu);
+	mod_timer(&credit_allocator->monitor_timer, jiffies + msecs_to_jiffies(1000));
+#endif
 	printk(KERN_INFO "kwlee: credit allocator init!!\n");	
 
         return 0;

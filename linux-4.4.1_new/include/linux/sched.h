@@ -3192,3 +3192,6 @@ static inline unsigned long rlimit_max(unsigned int limit)
 }
 
 #endif
+//kwlee
+extern int tg_set_cfs_quota(struct task_group *tg, long cfs_quota_us);
+extern long tg_get_cfs_quota(struct task_group *tg);

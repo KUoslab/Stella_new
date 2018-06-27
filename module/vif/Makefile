@@ -1,5 +1,5 @@
 CONFIG_MODULE_SIG=n
-KERNEL_DIR=/lib/modules/4.4.41/build
+KERNEL_DIR=/lib/modules/$(shell uname -r)/build
 obj-m = vif.o
 
 KDIR := $(KERNEL_DIR)
