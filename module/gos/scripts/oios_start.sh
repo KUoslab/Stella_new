@@ -7,7 +7,7 @@ rmmod oios-iosched
 
 #make &&
 #insmod oios-iosched.ko && echo oios > /sys/block/sdb/queue/scheduler
-insmod ../src/oios-iosched.ko && echo oios > /sys/block/sda/queue/scheduler
+insmod ../oios-iosched.ko && echo oios > /sys/block/sda/queue/scheduler
 
 lsmod | grep oios
 
