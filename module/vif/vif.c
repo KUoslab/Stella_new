@@ -4,11 +4,10 @@
 #include <linux/proc_fs.h>
 #include <linux/list.h>
 #include <linux/string.h>
-#include <linux/kvm_host.h>
-#include <linux/sched.h>
-
+#include<linux/kvm_host.h>
+#include<linux/sched.h>
+#include<../kernel/sched/sched.h>
 #include "common.h"
-
 struct proc_dir_vif{
 	char name[10];
 	int id;
@@ -33,26 +32,213 @@ void ires_work_func(void * data)
 	printk("[WORK QUEUE] Enter workqueue function\n");  
 }
 static DECLARE_WORK(ires_work, ires_work_func);
-int get_quota(struct ancs_vm *vif)
+static int calculate_vcpu_quota(int before)
+{
+	int after;
+	
+	if(before < 0)
+		after = 70000;
+	else
+		after = before - 30000;
+	
+	if(after <= 0 && before > MIN_QUOTA)
+		after = before - 1000;
+	else	
+		after = MIN_QUOTA;
+
+	return after;
+}
+static void vcpu_control(struct ancs_vm *vif, unsigned long goal, unsigned long perf)
+{
+	struct ancs_vm *temp_vif, *next_vif;
+	int before, after;
+
+	if(vif==NULL)
+		goto error;
+	
+	if(goal < perf){
+		before = get_vcpu_quota(vif);
+		after = calculate_vcpu_quota(before);
+		set_vcpu_quota(vif, after);
+		vif->vcpu_control = false;
+		return;		
+	}
+#if 0	
+	else{
+		if(list_empty(&credit_allocator->victim_vif_list))
+			goto error;
+
+		list_for_each_entry_safe(temp_vif, next_vif, &credit_allocator->victim_vif_list, victim_list){
+			if(temp_vif==NULL)
+				goto error;
+			
+			before = get_vcpu_quota(temp_vif);
+			after = calculate_vcpu_quota(before);
+			set_vcpu_quota(vif, after);
+			}
+		vif->vcpu_control = false;
+		}
+	return;
+#endif	
+error:
+	printk("kwlee: vcpu control failed\n");
+	return;
+			
+}
+
+static void quota_control(unsigned long data){
+	struct ancs_vm *temp_vif, *next_vif;
+	unsigned long perf, goal;
+#ifdef PRO_SHARE
+	unsigned long total_credit;
+	int total_weight;
+#endif
+	int before, after, diff, dat;
+	int cpu = smp_processor_id();
+	WARN_ON(cpu != data);	
+
+	if(list_empty(&credit_allocator->active_vif_list))
+		goto out;
+
+#ifdef PRO_SHARE
+	if(credit_allocator->total_credit != 0){
+		total_credit = credit_allocator->total_credit;
+		credit_allocator->total_credit = 0;
+		}
+	total_weight = credit_allocator->total_weight;
+#endif
+
+#ifdef HYBRID
+	if(total_credit < credit_allocator->quota_balance)
+		total_credit=0;
+	else
+		total_credit-=credit_allocator->quota_balance;
+	
+	credit_allocator->quota_balance = 0;
+#endif
+
+	list_for_each_entry_safe(temp_vif, next_vif, &credit_allocator->active_vif_list, active_list){
+		if(!temp_vif)
+			goto out;
+
+#if defined(HYBRID)
+		credit_allocator->total_credit += temp_vif->pps;
+		credit_allocator->quota_balance += temp_vif->max_credit;
+		
+		if(total_credit==0)
+			goal = temp_vif->max_credit;
+		else
+			goal = temp_vif->max_credit + (((total_credit* temp_vif->weight) + (total_weight-1) )/ total_weight);
+
+#elif !defined(PRO_SHARE)&&defined(MIN_RESERV)
+		goal = temp_vif->max_credit;
+
+#elif !defined(MIN_RESERV)&&defined(PRO_SHARE)
+		credit_allocator->total_credit += temp_vif->pps;
+		goal = ((total_credit * temp_vif->weight) + (total_weight-1) )/ total_weight;
+#endif
+
+#ifdef BW_CONTROL
+		perf = temp_vif->used_credit;
+#elif defined(PPS_CONTROL)
+		perf = temp_vif->pps;
+#endif
+		if(goal == perf || perf==0 || goal==0){
+			//if(list_empty(&temp_vif->victim_list))
+			//	list_add_tail(&temp_vif->victim_list, &credit_allocator->victim_vif_list);
+				
+			goto skip;
+			}
+		
+		diff = goal - perf;
+
+		before = get_vhost_quota(temp_vif);
+
+		if(diff>0){
+			dat = ((5000 * diff) + (goal-1))/goal;
+			if(dat>MAX_DIFF)
+				dat=MAX_DIFF;
+			after = before + dat;
+
+			//if(perf*2 <= diff)
+			//	temp_vif->vcpu_control = true;
+			}
+		else {
+			dat = ((5000*(perf-goal)) + (goal-1))/goal;
+			after = before - dat;
+
+			//if(goal*2 <= perf)
+			//	temp_vif->vcpu_control = true;
+			}
+
+		if(after > MAX_QUOTA)
+			after = MAX_QUOTA;
+		else if(after < 0)
+			after = MIN_QUOTA;
+
+		printk(KERN_INFO "kwlee: VM%d, goal=%lu, perf=%d, quota = %d\n", temp_vif->id, goal, perf, after);
+
+		set_vhost_quota(temp_vif, after);
+
+		//if(after == MIN_QUOTA && goal < perf)
+		//	temp_vif->vcpu_control = true;
+
+		//if(temp_vif->vcpu_control == true)
+		//	vcpu_control(temp_vif, goal, perf);
+
+	skip:
+#ifdef BW_CONTRL
+		temp_vif->stat.nw_usage = temp_vif->used_credit;
+		temp_vif->used_credit = 0;
+#else /* PPS_CONTROL */
+		temp_vif->stat.nw_usage = temp_vif->pps;
+		temp_vif->pps = 0;
+#endif
+		}
+
+	out:
+	mod_timer(&credit_allocator->quota_timer, jiffies + msecs_to_jiffies(1000));
+	return;
+
+}
+int get_vcpu_quota(struct ancs_vm *vif)
+{
+	struct task_struct *vcpu=vif->vcpu[0];
+	int quota;
+
+	if(vcpu==NULL)
+		return 0;
+	
+	quota=tg_get_cfs_quota(vcpu->sched_task_group);
+	
+	//printk("kwlee: quota of vhost is %d\n", quota);
+	return quota;
+}
+
+int get_vhost_quota(struct ancs_vm *vif)
 {
 	struct task_struct *vhost=vif->vhost;
-	struct task_struct *vcpu=vif->vcpu;
 	int quota;
 	
 	quota=tg_get_cfs_quota(vhost->sched_task_group);
-
+	
+	//printk("kwlee: quota of vhost is %d\n", quota);
 	return quota;
 }
 void set_vcpu_quota(struct ancs_vm *vif, int quota)
 {
-	struct task_group *tg;
+	struct task_struct *ts;
 	int i, err;
 
 	for(i=0; i<MAX_NUMBER_VCPU; i++){
-		tg=vif->vcpu[i]->sched_task_group;
-		err=tg_set_cfs_quota(tg, quota);
+		ts=vif->vcpu[i];
+
+		if(ts==NULL)
+			continue;
+
+		err=tg_set_cfs_quota(ts->sched_task_group, quota);
 		if(err)
-			printk("kwlee: vcpu quota setting is failed\n");
+			printk("kwlee: [VM%d] vcpu quota setting is failed -> %d \n", vif->id, quota);
 		}
 }
 
@@ -63,16 +249,17 @@ void set_vhost_quota(struct ancs_vm *vif, int quota)
 
 	err=tg_set_cfs_quota(tg, quota);
 	if(err)
-		printk("kwlee: vhost quota setting is failed\n");
+		printk("kwlee: [VM%d] vhost quota setting is failed -> %d\n", vif->id, quota);
+	
+	//printk("kwlee: SETTING quota of vhost is %d\n", quota);
 }
 #endif
 void add_active_vif(struct ancs_vm *vif)
 {
 	unsigned long flags;
 #ifdef CPU_CONTROL
-	long quota;
-	struct task_struct *test;
-	int pid, i;
+	long quota, i;
+	struct task_struct *previous, *next;
 #endif
 
 	if(vif==NULL){
@@ -94,16 +281,17 @@ void add_active_vif(struct ancs_vm *vif)
 	spin_unlock_irqrestore(&credit_allocator->active_vif_list_lock, flags);
 
 #ifdef CPU_CONTROL
-	test=(struct task_struct *)vif->vhost;
-	pid=test->pid+VCPU_IDX;
+	previous = (struct task_struct *)vif->parent;
 	for(i=0;i<MAX_NUMBER_VCPU;i++){
-		test=pid_task(find_get_pid(pid), PIDTYPE_PID);
-		if(!test)
+		next = next_thread(previous);
+		if(next == NULL){
 			printk("kwlee: vcpu task struct is NULL\n");
+			break;
+			}
 		else{
-			vif->vcpu[i]=test;
-			printk("kwlee: task struct %p of pid %d\n", test, test->pid);
-			pid++;
+			vif->vcpu[i] = next;
+			printk("kwlee: task struct %p of pid %d\n", next, next->pid);
+			previous = next;
 			}
 	}
 #endif
@@ -143,7 +331,7 @@ static void ancs_monitoring(unsigned int data){
 	list_for_each_entry_safe(temp_vif, next_vif, &credit_allocator->active_vif_list, active_list){
 		if(!temp_vif)
 			goto out;
-		
+#if 0		
 		cpu = temp_vif->stat.cpu_usage; 
 		nw = temp_vif->used_credit;
 		
@@ -157,11 +345,16 @@ static void ancs_monitoring(unsigned int data){
 		else
 			temp_vif->stat.flag = NW_intensive;
 
-		temp_vif->used_credit = 0;		
+		temp_vif->used_credit = 0;
+#endif
+#ifdef PPS_CONTROL
+		result += temp_vif->pps;
+		temp_vif->pps = 0;
+#endif		
 		}
-
+	credit_allocator->total_credit = result;
 	out:
-	mod_timer(&credit_allocator->monitor_timer, jiffies + msecs_to_jiffies(1000));
+	mod_timer(&credit_allocator->monitor_timer, jiffies + msecs_to_jiffies(5000));
 	return;
 }
 #endif
@@ -172,10 +365,11 @@ static void credit_accounting(unsigned long data){
 	unsigned int weight_left = total;
 	unsigned int credit_left = 0;
 	unsigned int credit_total = MAX_CREDIT ;
-	unsigned int credit_fair;
+	unsigned int credit_fair, credit_used;
 	int credit_xtra = 0 ;
 	iter=next=NULL;
 	temp_vif=next_vif=NULL;
+	
 	
 	int cpu = smp_processor_id();
 	WARN_ON(cpu != data);	
@@ -192,16 +386,15 @@ static void credit_accounting(unsigned long data){
 		if(!temp_vif)
 			goto out;
 		
-		weight_left -= temp_vif->weight;
-	
+		weight_left -= temp_vif->weight;	
 		credit_fair = ((credit_total * temp_vif->weight) + (total-1) )/ total;
 //		temp_vif->remaining_credit += credit_fair;
 		temp_vif->remaining_credit = credit_fair;
 #ifdef CPU_CONTROL
-		//credit_used=temp_vif->used_credit;
+		credit_used=temp_vif->used_credit;
 			/* check required performance is satisfied */
-		//if(credit_used!=0 && credit_used < credit_fair)	
-		//	schedule_work(&ires_work);
+		if(credit_used!=0 && credit_used < credit_fair)	
+			schedule_work(&ires_work);
 #endif
 		if(temp_vif->min_credit!=0 || temp_vif->max_credit!=0){
 			if(temp_vif->min_credit!=0 && temp_vif->remaining_credit < temp_vif->min_credit){
@@ -306,7 +499,7 @@ static ssize_t vif_write(struct file *file, const char __user* user_buffer, size
 		vif->stat.virq= value;
 		goto out;
         }
-#endif	
+#endif
 out:
 	return count;
 	
@@ -394,10 +587,11 @@ static int __init vif_init(void)
 	 credit_allocator->total_weight = 0;
 	 credit_allocator->credit_balance = 0;
 	 credit_allocator->num_vif =0;
+	 
 	 INIT_LIST_HEAD(&credit_allocator->active_vif_list);
 	 spin_lock_init(&credit_allocator->active_vif_list_lock);
 
-	 proc_root_dir = proc_mkdir("ancs", NULL);
+	 proc_root_dir = proc_mkdir("oslab", NULL);
 	
         list_for_each(p, &ancs_proc_list){
                 vif = list_entry(p, struct ancs_vm, proc_list);
@@ -424,19 +618,31 @@ static int __init vif_init(void)
 		("vhost_usage",0600, proc_vif[idx].dir, &vif_opt, vif);
 		proc_vif[idx].file[8] = proc_create_data
 		("kvm_virq",0600, proc_vif[idx].dir, &vif_opt, vif);
+		
 #endif	
 		idx++;
         }
 	cpu	= smp_processor_id();
 
-	setup_timer(&credit_allocator->account_timer, credit_accounting, cpu );
-	mod_timer(&credit_allocator->account_timer, jiffies + msecs_to_jiffies(50));
+//	setup_timer(&credit_allocator->account_timer, credit_accounting, cpu);
+//	mod_timer(&credit_allocator->account_timer, jiffies + msecs_to_jiffies(50));
+
 #ifdef CPU_CONTROL
-	setup_timer(&credit_allocator->monitor_timer, ancs_monitoring, cpu);
-	mod_timer(&credit_allocator->monitor_timer, jiffies + msecs_to_jiffies(1000));
+//	setup_timer(&credit_allocator->monitor_timer, ancs_monitoring, cpu);
+//	mod_timer(&credit_allocator->monitor_timer, jiffies + msecs_to_jiffies(5000));
+	setup_timer(&credit_allocator->quota_timer, quota_control, cpu);
+	mod_timer(&credit_allocator->quota_timer, jiffies + msecs_to_jiffies(1000));
+
+	INIT_LIST_HEAD(&credit_allocator->victim_vif_list);
+	 spin_lock_init(&credit_allocator->victim_vif_list_lock);
+#ifdef PRO_SHARE
+	 credit_allocator->total_credit = ~0UL;
+#endif
+#ifdef HYBRID
+	credit_allocator->quota_balance = 0;
+#endif
 #endif
 	printk(KERN_INFO "kwlee: credit allocator init!!\n");	
-
         return 0;
 }
 
@@ -466,8 +672,9 @@ static void __exit vif_exit(void)
 		vif = list_entry(p, struct ancs_vm, proc_list);
 		remove_active_vif(vif);
 		}
-	del_timer(&credit_allocator->monitor_timer);
-	del_timer(&credit_allocator->account_timer);
+//	del_timer(&credit_allocator->monitor_timer);
+//	del_timer(&credit_allocator->account_timer);
+	del_timer(&credit_allocator->quota_timer);
 
 	remove_proc_entry("oslab", NULL);
         return;
