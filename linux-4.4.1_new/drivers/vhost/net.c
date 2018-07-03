@@ -744,8 +744,11 @@ static int vhost_net_open(struct inode *inode, struct file *f)
 
 #ifdef ANCS	//kwlee
 	vnet = kmalloc(sizeof (struct ancs_vm), GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
-	if(!vnet)
+	if(!vnet) {
+		kfree(vqs);
+		kvfree(n);
 		return -ENOMEM;
+	}
 	
 	INIT_LIST_HEAD(&vnet->proc_list);				/* AHN */
 	list_add(&vnet->proc_list, &ancs_proc_list);		/* AHN */
@@ -858,6 +861,9 @@ static int vhost_net_release(struct inode *inode, struct file *f)
 	/* We do an extra flush before freeing memory,
 	 * since jobs can re-queue themselves. */
 	vhost_net_flush(n);
+#ifdef ANCS
+	kfree(n->vnet);
+#endif
 	kfree(n->dev.vqs);
 	kvfree(n);
 	return 0;
