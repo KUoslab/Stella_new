@@ -40,8 +40,6 @@
 #define VCPU_NUM 4
 #define VM_NUM 2
 
-#define DEBUG
-
 enum scheduler {none, cpu, io};
 enum sla {b_bw, b_iops, b_lat, c_usg};
 
