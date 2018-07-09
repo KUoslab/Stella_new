@@ -37,24 +37,24 @@ struct disk_stat_wj {
 /* declaration - struct variable*/
 //struct io_SLA_percent io_SLA_percent_wj;
 		//static struct io_stat_wj now_io_stat;
-static struct disk_stat_wj prev_disk_stat[VM_NUM];
+static struct disk_stat prev_disk_stat[VM_NUM];
 		//static struct disk_stat_wj now_disk_stat;
 //EXPORT_SYMBOL(io_SLA_percent_wj);*/
 
 /* declaration - function */
-void get_disk_stat(char *, struct disk_stat_wj *);
+void get_disk_stat(char *, struct disk_stat *);
 //extern struct block_device *bdget_disk(struct gendisk *, int);
 
 /* declaration - basic variable */
-static struct hd_struct *hd_struct_wj = NULL;
-static struct gendisk *gendisk_wj = NULL;
-dev_t dev_t_wj = -1;
+static struct hd_struct *gos_hd_struct = NULL;
+static struct gendisk *gos_gendisk = NULL;
+dev_t gos_dev_t = -1;
 
 void cal_io_SLA_percent(int vm_num)
 {
 	unsigned long sector_size = 512; // temp_wj
 //	struct vm_perf_wj now_io_stat; // 10000 is 100.00
-	struct disk_stat_wj now_disk_stat;
+	struct disk_stat now_disk_stat;
 	unsigned long ios = 0, sectors = 0, ticks = 0, wait = 0;
 
 	if(gos_vm_list[vm_num] == NULL) return;
@@ -141,22 +141,22 @@ EXPORT_SYMBOL(cal_io_SLA_percent);
 }
 */
 ///////////////////////////////////////////////////////////////////////////////////
-void get_disk_stat(char *dev_name, struct disk_stat_wj *now_disk_stat)
+void get_disk_stat(char *dev_name, struct disk_stat *now_disk_stat)
 {
 	int part_no=0;
 	//char disk_name[BDEVNAME_SIZE];
-	dev_t_wj = name_to_dev_t (dev_name);
-	gendisk_wj = get_gendisk(dev_t_wj, &part_no);
-	hd_struct_wj = disk_get_part(gendisk_wj, part_no);
+	gos_dev_t = name_to_dev_t (dev_name);
+	gos_gendisk = get_gendisk(gos_dev_t, &part_no);
+	gos_hd_struct = disk_get_part(gos_gendisk, part_no);
 	//printk(KERN_INFO "block_size : %u", (bdget_disk(gendisk_wj, part_no))->bd_block_size);
 /**/
 	//printk(KERN_INFO "nr_sects : %d", gendisk_wj->part_tbl->len);
 /**/
 
-	now_disk_stat -> ios = part_stat_read(hd_struct_wj, ios[READ]) + part_stat_read(hd_struct_wj, ios[WRITE]);
-	now_disk_stat -> sectors = part_stat_read(hd_struct_wj, sectors[READ]) + part_stat_read(hd_struct_wj, sectors[WRITE]);
-	now_disk_stat -> ticks = jiffies_to_msecs(part_stat_read(hd_struct_wj, io_ticks));
-	now_disk_stat -> wait = jiffies_to_msecs(part_stat_read(hd_struct_wj, time_in_queue));
+	now_disk_stat -> ios = part_stat_read(gos_hd_struct, ios[READ]) + part_stat_read(gos_hd_struct, ios[WRITE]);
+	now_disk_stat -> sectors = part_stat_read(gos_hd_struct, sectors[READ]) + part_stat_read(gos_hd_struct, sectors[WRITE]);
+	now_disk_stat -> ticks = jiffies_to_msecs(part_stat_read(gos_hd_struct, io_ticks));
+	now_disk_stat -> wait = jiffies_to_msecs(part_stat_read( gos_hd_struct, time_in_queue));
 }
 
 /*void disk_stat_print_wj(char *dev_name_wj)

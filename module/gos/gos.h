@@ -17,7 +17,6 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/timer.h>
-//#include <linux/hrtimer.h>
 #include <asm/uaccess.h>
 
 #endif
@@ -47,14 +46,14 @@ enum sla {b_bw, b_iops, b_lat, c_usg};
    Structure Area
 */
 
-struct vm_perf_wj {
+struct vm_perf {
 	unsigned long iops;		// req/s
 	unsigned long bandwidth;	// MB/s
 	unsigned long latency;		// ms
 	unsigned long cpu_usage;	// %
 };
 
-struct disk_stat_wj {
+struct disk_stat {
 	unsigned long ios;
 	unsigned long sectors;
 	unsigned long ticks;
@@ -69,14 +68,14 @@ struct gos_vm_info {
 	char sla_option[10];
 
 	// Target SLA value
-	struct vm_perf_wj sla_target;
+	struct vm_perf sla_target;
 
 	// Status value now
-	struct disk_stat_wj now_io_stat;
+	struct disk_stat now_io_stat;
 	unsigned long now_cpu_time;
 
 	// Performance value now
-	struct vm_perf_wj now_perf;
+	struct vm_perf now_perf;
 
 	// Prev stat feedback controller
 	long prev_SLA;	// 100.00% == 10000
