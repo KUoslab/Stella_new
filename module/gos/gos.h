@@ -38,9 +38,14 @@
 
 #define VCPU_NUM 4
 #define VM_NUM 2
+#define SYS_CPU_UTIL_THRESHOLD 8500 /* 8500 = 85.00% */
+#define WORK_CONSERVING -1
+#define SLA_GOAL 10000
+#define PERIOD 100000	/* us, 100ms */
+#define GOS_INTERVAL 3000E6L	/* 3s */
 
-enum scheduler {none, cpu, io};
-enum sla {b_bw, b_iops, b_lat, c_usg};
+enum gos_type {cpu, ssd, network};
+enum sla {b_bw, b_iops, b_lat, c_usg, n_mincredit, n_maxcredit, n_weight};
 
 /*
    Structure Area
@@ -61,37 +66,37 @@ struct disk_stat {
 };
 
 struct gos_vm_info {
-	struct task_struct *ts[VCPU_NUM];
-	struct task_group *tg[VCPU_NUM];
+	/* task_struct */
+	struct task_struct *vcpu[VCPU_NUM];
+	struct task_struct *vhost;
+	struct task_struct *iothread;
 
-	char dev_name[20];
+	/* 
+	 * SLA information
+	 * SLA: 100.00% = 10000 
+	 */
+	unsigned long prev_sla;
+	unsigned long now_sla;
 	char sla_option[10];
-
-	// Target SLA value
 	struct vm_perf sla_target;
-
-	// Status value now
-	struct disk_stat now_io_stat;
-	unsigned long now_cpu_time;
-
-	// Performance value now
-	struct vm_perf now_perf;
-
-	// Prev stat feedback controller
-	long prev_SLA;	// 100.00% == 10000
-	long prev_quota;
-
-	// Now stat for feedback controller
-	long now_SLA;	// 100.00 % == 10000
-	long now_quota;
-
-	unsigned long elapsed_time;
-
-	// SLA category number (b_bw: block bandwidth , b_iops: block iops , b_lat: block latency , c_usg: cpu usage)
 	enum sla sla_type;
 
-	// Target scheduler to control VM's resource
-	enum scheduler control_sched;
+	/* 
+	 * status value used by other modules which measure
+	 * performance stats.
+	 */
+	char dev_name[20];
+	struct disk_stat now_io_stat;
+	struct vm_perf now_perf;
+	unsigned long prev_cpu_time;
+	unsigned long now_cpu_time;
+
+	/* quota information */
+	long prev_quota;
+	long now_quota;
+
+	/* Target type to control VM's resource */
+	enum gos_type control_type;
 };
 
 /*

@@ -89,8 +89,8 @@ void cal_io_SLA_percent(int vm_num)
 	if (gos_vm_list[vm_num]->sla_type == b_iops){
 		//if (ios != 0 && ticks != 0){
 		//	now_io_stat.iops = 100 * ios * 1000 / ticks; // req/s * 100
-		gos_vm_list[vm_num]->prev_SLA = gos_vm_list[vm_num]->now_SLA;
-		gos_vm_list[vm_num]->now_SLA = gos_vm_list[vm_num]->now_perf.iops * 100 / gos_vm_list[vm_num]->sla_target.iops; // % * 100
+		gos_vm_list[vm_num]->prev_sla = gos_vm_list[vm_num]->now_sla;
+		gos_vm_list[vm_num]->now_sla = gos_vm_list[vm_num]->now_perf.iops * 100 / gos_vm_list[vm_num]->sla_target.iops; // % * 100
 #ifdef DEBUG
 		printk(KERN_INFO "     IOPS : %lu(req/s * 100)\n", gos_vm_list[vm_num]->now_perf.iops);
 #endif
@@ -99,8 +99,8 @@ void cal_io_SLA_percent(int vm_num)
 	else if (gos_vm_list[vm_num]->sla_type == b_bw){
 		//if (sectors != 0 && ticks != 0){
 		//	now_io_stat.bandwidth = (sectors * sector_size) / (ticks*10); // MB/s * 100
-		gos_vm_list[vm_num]->prev_SLA = gos_vm_list[vm_num]->now_SLA;
-		gos_vm_list[vm_num]->now_SLA = gos_vm_list[vm_num]->now_perf.bandwidth * 100 / gos_vm_list[vm_num]->sla_target.bandwidth;// % * 100
+		gos_vm_list[vm_num]->prev_sla = gos_vm_list[vm_num]->now_sla;
+		gos_vm_list[vm_num]->now_sla = gos_vm_list[vm_num]->now_perf.bandwidth * 100 / gos_vm_list[vm_num]->sla_target.bandwidth;// % * 100
 #ifdef DEBUG
 		printk(KERN_INFO "Bandwidth : %lu(MB/s * 100)\n", gos_vm_list[vm_num]->now_perf.bandwidth);
 #endif
@@ -109,8 +109,8 @@ void cal_io_SLA_percent(int vm_num)
 	else if (gos_vm_list[vm_num]->sla_type == b_lat){
 		//if (wait != 0 && ios != 0){
 		//	now_io_stat.bandwidth = 100 * wait / ios; // ms * 100
-		gos_vm_list[vm_num]->prev_SLA = gos_vm_list[vm_num]->now_SLA;
-		gos_vm_list[vm_num]->now_SLA = gos_vm_list[vm_num]->now_perf.latency * 100 / gos_vm_list[vm_num]->sla_target.latency; // % * 100
+		gos_vm_list[vm_num]->prev_sla = gos_vm_list[vm_num]->now_sla;
+		gos_vm_list[vm_num]->now_sla = gos_vm_list[vm_num]->now_perf.latency * 100 / gos_vm_list[vm_num]->sla_target.latency; // % * 100
 #ifdef DEBUG
 		printk(KERN_INFO "  Latency : %lu(ms * 100)\n", gos_vm_list[vm_num]->now_perf.latency);
 #endif
