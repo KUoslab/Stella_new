@@ -135,7 +135,10 @@ void feedback_controller(unsigned long elapsed_time)
 			 */
 			printk("gos: before now_sla: %lu, prev_sla: %lu\n", now_sla, prev_sla);
 			printk("gos: before now_quota: %ld, prev_quota: %ld\n", now_quota, prev_quota); 
-			if (now_sla < DISSATISFY && now_quota > 0) {	
+			if (now_sla == 0 || now_sla > DISSATISFY) {
+				return;
+			}
+			else if (now_sla < DISSATISFY && now_quota > 0) {	
 				tmp_quota = now_quota;
 				delta_quota = now_quota - prev_quota;
 				delta_sla = now_sla - prev_sla;
@@ -152,8 +155,9 @@ void feedback_controller(unsigned long elapsed_time)
 				prev_cpu_time = gos_vm_list[i]->prev_cpu_time * 1000 / HZ;
 				now_cpu_time = gos_vm_list[i]->now_cpu_time * 1000 / HZ;
 				/* 100.00% = 10000, gos_interval is 3s*/	
-				vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (GOS_INTERVAL / 1000000);
+				vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
 				tmp_quota = vm_cpu_util * PERIOD / 10000;
+				printk("gos: vm cpu util = %lu, %lu.%lu tmp_quota = %ld\n", vm_cpu_util, vm_cpu_util / 100, vm_cpu_util % 100, tmp_quota);
 				/* This value has risk to be zero */
 				now_quota = (tmp_quota * (SLA_GOAL - now_sla)) / SLA_GOAL;
 
@@ -370,9 +374,11 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 			} else if(strcmp(tok, "free") == 0) {
 				f_free = 1;
 				break;
-			} else
+			} else {
 				printk(KERN_INFO "gos: [Error] Wrong Parameter\n");
-
+				goto out;
+			}
+			tmp_vm_info->now_quota = WORK_CONSERVING;
 			strcpy(tmp_vm_info->sla_option, tok);
 			i_parm++;
 	
@@ -392,8 +398,7 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 			
 			if (unlikely(err)) {
 				printk(KERN_INFO "gos: [WARNING] VM(PID:%lld) is off\n", tmp_l);
-				kfree(tmp_vm_info);
-				return s;
+				goto out;
 			}
 		} else if(i_parm == 3) {
 			strcpy(tmp_vm_info->dev_name, tok);
@@ -417,9 +422,8 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 			gos_vm_list[index] = NULL;
 
 			if(f_free == 1) {
-				kfree(tmp_vm_info);
-				tmp_vm_info = NULL;
 				printk(KERN_INFO "Free VM %d\n", index);
+				goto out;
 			} else {
 				gos_vm_list[index] = tmp_vm_info;
 				f_dup = 1;
@@ -439,6 +443,11 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 	kfree(tmp_buf);
 
 	return s;
+
+out:
+	kfree(tmp_buf);
+	kfree(tmp_vm_info);
+	return s;	
 }
 
 static int gos_open(struct inode *inode, struct file *file)
