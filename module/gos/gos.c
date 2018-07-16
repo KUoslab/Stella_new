@@ -11,8 +11,8 @@
 #define IO_VM_PERIOD 9
 
 //#define DEBUG
-#define OVERSATISFY 10100	// 101.00 %
-#define DISSATISFY 9900		// 99.00 %
+#define OVERSATISFY 10200	// 102.00 %
+#define DISSATISFY 9800		// 98.00 %
 
 static struct timer_list gos_timer;
 
@@ -108,8 +108,8 @@ void feedback_controller(unsigned long elapsed_time)
 	unsigned long sys_cpu_util = get_sys_cpu_util();
 	unsigned long vm_cpu_util;
 	unsigned long prev_cpu_time, now_cpu_time;
-	long now_quota, prev_quota, delta_quota, tmp_quota;
-	unsigned long prev_sla, now_sla, diff_perf, delta_sla;
+	long now_quota, prev_quota, tmp_quota = 0;
+	unsigned long prev_sla, now_sla;
 	int i;
 
 	for (i = 0; i < VM_NUM; i++) {
@@ -133,34 +133,38 @@ void feedback_controller(unsigned long elapsed_time)
 			 * if it is, now_quota has same value with prev_quota and vhost or 
 			 * io thread doesn't get enough quota and CPU resource.
 			 */
+	
+			/* vm_cpu_util value 10000 = 100.00% */
+			/* ms */
+			prev_cpu_time = gos_vm_list[i]->prev_cpu_time * 1000 / HZ;
+			now_cpu_time = gos_vm_list[i]->now_cpu_time * 1000 / HZ;
+			/* 100.00% = 10000, gos_interval is 3s*/	
+			vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
+
 			printk("gos: before now_sla: %lu, prev_sla: %lu\n", now_sla, prev_sla);
 			printk("gos: before now_quota: %ld, prev_quota: %ld\n", now_quota, prev_quota); 
-			if (now_sla == 0 || now_sla > DISSATISFY) {
-				return;
-			}
-			else if (now_sla < DISSATISFY && now_quota > 0) {	
+			printk("gos: vm cpu util = %lu, %lu.%lu tmp_quota = %ld\n", vm_cpu_util, vm_cpu_util / 100, vm_cpu_util % 100, tmp_quota);
+			/* initial state */
+			if (now_sla == 0 || vm_cpu_util < EXIT_CPU_UTIL) {
 				tmp_quota = now_quota;
-				delta_quota = now_quota - prev_quota;
-				delta_sla = now_sla - prev_sla;
-				diff_perf = SLA_GOAL - now_sla;
-				now_quota = delta_quota * diff_perf;
-				/* 
-				 * you have to print and check now_quota and delta_sla
-				 * also have to check if now_quota/delta_sla is none-zero
-				 */
-				now_quota = (now_quota / delta_sla) + prev_quota;
+				now_quota = WORK_CONSERVING;
+			} else if (now_sla > OVERSATISFY) {
+				/* TODO tmp routine */
+				/* remove this routine if oios can calculate SLA alone */
+				tmp_quota = now_quota;
+				if (now_quota == WORK_CONSERVING)
+					now_quota = vm_cpu_util * PERIOD / 10000;
+				now_quota -= (now_quota * (now_sla - SLA_GOAL) / SLA_GOAL) / 3;
+			} else if (now_sla < DISSATISFY && now_quota > 0) {	
+				tmp_quota = now_quota;
+				/* remove hared coded 10500. this is for not creating minus value */
+				/* slow down increasment speed */
+				//now_quota += (now_quota * (10500 - vm_cpu_util) / 10500) / 3;
+				now_quota += (now_quota * (SLA_GOAL - now_sla) / SLA_GOAL) / 3;
 			} else if (now_sla < DISSATISFY && now_quota == WORK_CONSERVING) {
-				/* vm_cpu_util value 10000 = 100.00% */
-				/* ms */
-				prev_cpu_time = gos_vm_list[i]->prev_cpu_time * 1000 / HZ;
-				now_cpu_time = gos_vm_list[i]->now_cpu_time * 1000 / HZ;
-				/* 100.00% = 10000, gos_interval is 3s*/	
-				vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
 				tmp_quota = vm_cpu_util * PERIOD / 10000;
-				printk("gos: vm cpu util = %lu, %lu.%lu tmp_quota = %ld\n", vm_cpu_util, vm_cpu_util / 100, vm_cpu_util % 100, tmp_quota);
 				/* This value has risk to be zero */
-				now_quota = (tmp_quota * (SLA_GOAL - now_sla)) / SLA_GOAL;
-
+				now_quota = tmp_quota + ((tmp_quota * (SLA_GOAL - now_sla)) / SLA_GOAL) / 3;
 				/* 
 				 * in the first time this timer function called
 				 * if prev_cpu_time == now_cpu_time, then cpu util is zero 
@@ -172,10 +176,10 @@ void feedback_controller(unsigned long elapsed_time)
 					now_quota = WORK_CONSERVING;
 				}
 			}
-			printk("gos: after now_quota: %ld, prev_quota: %ld\n", now_quota, tmp_quota); 
 			set_vm_quota(i, now_quota);
 			gos_vm_list[i]->prev_quota = tmp_quota;
 			gos_vm_list[i]->now_quota = now_quota;
+			printk("gos: after now_quota: %ld, prev_quota: %ld\n", now_quota, tmp_quota); 
 		}
 	}
 }
@@ -184,34 +188,9 @@ void gos_timer_callback(unsigned long data)
 {
 	unsigned long elapsed_time = jiffies_to_msecs(jiffies - prev_jiffies);
 	prev_jiffies = jiffies;
-#ifdef DEBUG
-	int i = 0;
-#endif
 
-#ifdef DEBUG
-	printk(KERN_INFO "gos_timer_callback called (%ld)\n", jiffies);
-	printk(KERN_INFO "interval time = %ld", elapsed_time);	
-#endif
 
 	feedback_controller(elapsed_time);
-
-#ifdef DEBUG
-	for(i = 0 ; i < VM_NUM ; i++)
-	{
-		if(gos_vm_list[i] != NULL)
-		{
-
-			if(gos_vm_list[i]->sla_type == b_iops)
-				printk(KERN_INFO "[VM%d] SLA Option = %s, SLA Value = %d, Perf Value = %d, SLA Percent = %d\n", i, gos_vm_list[i]->sla_option, gos_vm_list[i]->sla_target.iops, gos_vm_list[i]->now_perf.iops, gos_vm_list[i]->now_SLA);
-			else if(gos_vm_list[i]->sla_type == b_bw)
-				printk(KERN_INFO "[VM%d] SLA Option = %s, SLA Value = %d, Perf Value = %d, SLA Percent = %d\n", i, gos_vm_list[i]->sla_option, gos_vm_list[i]->sla_target.bandwidth, gos_vm_list[i]->now_perf.bandwidth, gos_vm_list[i]->now_SLA);
-			else if(gos_vm_list[i]->sla_type == b_lat)
-				printk(KERN_INFO "[VM%d] SLA Option = %s, SLA Value = %d, Perf Value = %d, SLA Percent = %d\n", i, gos_vm_list[i]->sla_option, gos_vm_list[i]->sla_target.latency, gos_vm_list[i]->now_perf.latency, gos_vm_list[i]->now_SLA);			
-			else if(gos_vm_list[i]->sla_type == c_usg)
-				printk(KERN_INFO "[VM%d] SLA Option = %s, SLA Value = %d, Perf Value = %d, SLA Percent = %d\n", i, gos_vm_list[i]->sla_option, gos_vm_list[i]->sla_target.cpu_usage, gos_vm_list[i]->now_perf.cpu_usage, gos_vm_list[i]->now_SLA);
-		}
-	}
-#endif
 
 	gos_timer.expires = jiffies + msecs_to_jiffies(INTERVAL);
 	add_timer(&gos_timer);

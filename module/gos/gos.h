@@ -41,8 +41,8 @@
 #define SYS_CPU_UTIL_THRESHOLD 8500 /* 8500 = 85.00% */
 #define WORK_CONSERVING -1
 #define SLA_GOAL 10000
+#define EXIT_CPU_UTIL 1000
 #define PERIOD 100000	/* us, 100ms */
-#define GOS_INTERVAL 3000E6L	/* 3s */
 
 enum gos_type {cpu, ssd, network};
 enum sla {b_bw, b_iops, b_lat, c_usg, n_mincredit, n_maxcredit, n_weight};
