@@ -146,7 +146,8 @@ static void quota_control(unsigned long data){
 		perf = temp_vif->pps;
 #endif
 		for (i = 0; i < VM_NUM; i++) {
-			if (gos_vm_list[i]->vhost->pid == temp_vif->vhost->pid) {
+			if (gos_vm_list[i]->control_type == network &&
+			    gos_vm_list[i]->vhost->pid == temp_vif->vhost->pid) {
 				gos_vm_list[i]->prev_sla = gos_vm_list[i]->now_sla;
 				gos_vm_list[i]->now_sla = perf * 10000 / goal;
 				break;
