@@ -11,6 +11,7 @@
 #include <linux/wait.h>
 #include <linux/sched.h>
 #include <../drivers/vhost/vhost.h>
+#include "../gos/gos.c"
 
 #ifndef ANCS
 #define ANCS
@@ -84,3 +85,4 @@ void set_vcpu_quota(struct ancs_vm *vif, int quota);
 void set_vhost_quota(struct ancs_vm *vif, int quota);
 static int calculate_vcpu_quota(int before);
 #endif
+extern struct gos_vm_info *gos_vm_list[VM_NUM];
