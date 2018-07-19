@@ -72,7 +72,7 @@ int set_vm_quota(int vm_num, long quota)
 
 static void get_cpu_resource(void)
 {
-	long now_quota, disstaisfy_quantum = 0;
+	long now_quota, dissatisfy_quantum = 0;
 	int i, k;
 
 	for (i = 0; i < VM_NUM; i++) {
@@ -191,6 +191,9 @@ void feedback_controller(unsigned long elapsed_time)
 		if (gos_vm_list[i]->control_type == cpu)
 			continue;
 
+		if (gos_vm_list[i]->control_type == ssd)
+			cal_io_SLA_percent(i);
+
 		now_quota = gos_vm_list[i]->now_quota;
 		prev_quota = gos_vm_list[i]->prev_quota;
 		now_sla = gos_vm_list[i]->now_sla;
@@ -244,8 +247,8 @@ void feedback_controller(unsigned long elapsed_time)
 		gos_vm_list[i]->now_quota = now_quota;
 		printk("gos: after now_quota: %ld, prev_quota: %ld\n", now_quota, tmp_quota); 
 	}
-	if (sys_cpu_util > SYS_CPU_MAX_UTIL)
-		get_cpu_resource();
+	//if (sys_cpu_util > SYS_CPU_MAX_UTIL)
+	//	get_cpu_resource();
 	
 }
 
