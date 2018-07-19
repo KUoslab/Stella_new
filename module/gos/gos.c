@@ -20,6 +20,7 @@ static struct proc_dir_entry *gos_proc_file;
 static const struct file_operations gos_vm_info;
 
 static unsigned long prev_jiffies = 0;
+u64 prev_total_time, prev_used_time;
 
 /*
    Start of the feedback controller code
@@ -69,14 +70,85 @@ int set_vm_quota(int vm_num, long quota)
 	return 0;
 }
 
-/* tmp version */
-unsigned long get_sys_cpu_util(void)
+static void get_cpu_resource(void)
 {
-	unsigned long rv = 9000;
-	return rv;
+	long now_quota, disstaisfy_quantum = 0;
+	int i, k;
+
+	for (i = 0; i < VM_NUM; i++) {
+		if (gos_vm_list[i] == NULL)
+			continue;	
+			
+		if (gos_vm_list[i]->control_type != cpu)
+			continue;
+
+		now_quota = gos_vm_list[i]->now_quota;
+
+		if (now_quota == WORK_CONSERVING)
+			now_quota = PERIOD;
+
+		for (k = 0; k < VM_NUM; k++) {
+			if (gos_vm_list[k]->control_type != cpu)
+				dissatisfy_quantum += SLA_GOAL - gos_vm_list[k]->now_sla;
+		}
+
+		if (dissatisfy_quantum > 0) {
+			/* now_quota = ... */
+		}
+
+		set_vm_quota(i, now_quota);
+		gos_vm_list[i]->now_quota = now_quota;	
+	}
 }
 
-void update_vm_cpu_time(int vm_num)
+/* tmp version */
+static unsigned long get_sys_cpu_util(void)
+{
+	u64 user, nice, system, idle, iowait, irq, softirq, steal;
+	u64 guest, guest_nice;
+	u64 total_time = 0, used_time = 0;
+	u64 tmp_total, tmp_used;
+	u64 sys_util, int_sys_util, flo_sys_util;
+	int i;
+	
+	user = nice = system = idle = iowait = irq = softirq = steal = 0;
+	guest = guest_nice = 0;
+
+	for_each_possible_cpu(i) {
+		user += kcpustat_cpu(i).cpustat[CPUTIME_USER];
+		nice += kcpustat_cpu(i).cpustat[CPUTIME_NICE];
+		system += kcpustat_cpu(i).cpustat[CPUTIME_SYSTEM];
+		idle += kcpustat_cpu(i).cpustat[CPUTIME_IDLE];
+		iowait += kcpustat_cpu(i).cpustat[CPUTIME_IOWAIT];
+		irq += kcpustat_cpu(i).cpustat[CPUTIME_IRQ];
+		softirq += kcpustat_cpu(i).cpustat[CPUTIME_SOFTIRQ];
+		steal += kcpustat_cpu(i).cpustat[CPUTIME_STEAL];
+		guest += kcpustat_cpu(i).cpustat[CPUTIME_GUEST];
+		guest_nice += kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE]; 
+	}
+	
+	total_time = user + nice + system + idle + iowait + irq + softirq + steal
+			+ guest + guest_nice;
+	used_time = total_time - idle;
+
+	if (prev_total_time == 0) {
+		prev_total_time = total_time;
+		prev_used_time = used_time;
+		sys_util = 0;
+	} else {
+		tmp_total = total_time - prev_total_time;
+		tmp_used = used_time - prev_used_time;
+		sys_util = (tmp_used * 10000) / tmp_total;
+		int_sys_util = sys_util / 100;
+		flo_sys_util = sys_util % 100;
+		prev_total_time = total_time;
+		prev_used_time = used_time;
+		printk("sys util : %lu.%lu\n", int_sys_util, flo_sys_util);
+	}
+	return sys_util;
+}
+
+static void update_vm_cpu_time(int vm_num)
 {
 	struct task_struct **ts, *vhost, *iothread;
 	unsigned long tmp_total_time = 0;
@@ -105,8 +177,8 @@ void update_vm_cpu_time(int vm_num)
 
 void feedback_controller(unsigned long elapsed_time)
 {
-	unsigned long sys_cpu_util = get_sys_cpu_util();
 	unsigned long vm_cpu_util;
+	unsigned long sys_cpu_util = get_sys_cpu_util();
 	unsigned long prev_cpu_time, now_cpu_time;
 	long now_quota, prev_quota, tmp_quota = 0;
 	unsigned long prev_sla, now_sla;
@@ -114,7 +186,10 @@ void feedback_controller(unsigned long elapsed_time)
 
 	for (i = 0; i < VM_NUM; i++) {
 		if (gos_vm_list[i] == NULL)
-			continue;		
+			continue;	
+		
+		if (gos_vm_list[i]->control_type == cpu)
+			continue;
 
 		now_quota = gos_vm_list[i]->now_quota;
 		prev_quota = gos_vm_list[i]->prev_quota;
@@ -122,66 +197,56 @@ void feedback_controller(unsigned long elapsed_time)
 		prev_sla = gos_vm_list[i]->prev_sla;
 		update_vm_cpu_time(i);
 
-		if (sys_cpu_util < SYS_CPU_UTIL_THRESHOLD) {
-			set_vm_quota(i, WORK_CONSERVING);
-			gos_vm_list[i]->prev_quota = gos_vm_list[i]->now_quota;
-			gos_vm_list[i]->now_quota = WORK_CONSERVING;
-		} else {
-			/*
-			 * during calculation procedure, it has a risk that
-			 * if delta_sla > delta_quota, then delta_quota/delta_sla is zero.
-			 * if it is, now_quota has same value with prev_quota and vhost or 
-			 * io thread doesn't get enough quota and CPU resource.
-			 */
-	
-			/* vm_cpu_util value 10000 = 100.00% */
-			/* ms */
-			prev_cpu_time = gos_vm_list[i]->prev_cpu_time * 1000 / HZ;
-			now_cpu_time = gos_vm_list[i]->now_cpu_time * 1000 / HZ;
-			/* 100.00% = 10000, gos_interval is 3s*/	
-			vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
+		/* vm_cpu_util value 10000 = 100.00% */
+		/* ms */
+		prev_cpu_time = gos_vm_list[i]->prev_cpu_time * 1000 / HZ;
+		now_cpu_time = gos_vm_list[i]->now_cpu_time * 1000 / HZ;
+		/* 100.00% = 10000, gos_interval is 3s*/	
+		vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
 
-			printk("gos: before now_sla: %lu, prev_sla: %lu\n", now_sla, prev_sla);
-			printk("gos: before now_quota: %ld, prev_quota: %ld\n", now_quota, prev_quota); 
-			printk("gos: vm cpu util = %lu, %lu.%lu tmp_quota = %ld\n", vm_cpu_util, vm_cpu_util / 100, vm_cpu_util % 100, tmp_quota);
-			/* initial state */
-			if (now_sla == 0 || vm_cpu_util < EXIT_CPU_UTIL) {
-				tmp_quota = now_quota;
+		printk("gos: before now_sla: %lu, prev_sla: %lu\n", now_sla, prev_sla);
+		printk("gos: before now_quota: %ld, prev_quota: %ld\n", now_quota, prev_quota); 
+		printk("gos: vm cpu util = %lu, %lu.%lu tmp_quota = %ld\n", vm_cpu_util, vm_cpu_util / 100, vm_cpu_util % 100, tmp_quota);
+		/* initial state */
+		if (now_sla == 0 || vm_cpu_util < EXIT_CPU_UTIL) {
+			tmp_quota = now_quota;
+			now_quota = WORK_CONSERVING;
+		} else if (now_sla > OVERSATISFY) {
+			/* TODO tmp routine */
+			/* remove this routine if oios can calculate SLA alone */
+			tmp_quota = now_quota;
+			if (now_quota == WORK_CONSERVING)
+				now_quota = vm_cpu_util * PERIOD / 10000;
+			now_quota -= (now_quota * (now_sla - SLA_GOAL) / SLA_GOAL) / 3;
+		} else if (now_sla < DISSATISFY && now_quota > 0) {	
+			tmp_quota = now_quota;
+			/* remove hared coded 10500. this is for not creating minus value */
+			/* slow down increasment speed */
+			//now_quota += (now_quota * (10500 - vm_cpu_util) / 10500) / 3;
+			now_quota += (now_quota * (SLA_GOAL - now_sla) / SLA_GOAL) / 3;
+		} else if (now_sla < DISSATISFY && now_quota == WORK_CONSERVING) {
+			tmp_quota = vm_cpu_util * PERIOD / 10000;
+			/* This value has risk to be zero */
+			now_quota = tmp_quota + ((tmp_quota * (SLA_GOAL - now_sla)) / SLA_GOAL) / 3;
+			/* 
+			 * in the first time this timer function called
+			 * if prev_cpu_time == now_cpu_time, then cpu util is zero 
+			 * and it can not get accurate cpu util. so, defer quota calculation
+			 * to next time.
+			 */
+			if (unlikely(vm_cpu_util == 0)) {
+				tmp_quota = WORK_CONSERVING;
 				now_quota = WORK_CONSERVING;
-			} else if (now_sla > OVERSATISFY) {
-				/* TODO tmp routine */
-				/* remove this routine if oios can calculate SLA alone */
-				tmp_quota = now_quota;
-				if (now_quota == WORK_CONSERVING)
-					now_quota = vm_cpu_util * PERIOD / 10000;
-				now_quota -= (now_quota * (now_sla - SLA_GOAL) / SLA_GOAL) / 3;
-			} else if (now_sla < DISSATISFY && now_quota > 0) {	
-				tmp_quota = now_quota;
-				/* remove hared coded 10500. this is for not creating minus value */
-				/* slow down increasment speed */
-				//now_quota += (now_quota * (10500 - vm_cpu_util) / 10500) / 3;
-				now_quota += (now_quota * (SLA_GOAL - now_sla) / SLA_GOAL) / 3;
-			} else if (now_sla < DISSATISFY && now_quota == WORK_CONSERVING) {
-				tmp_quota = vm_cpu_util * PERIOD / 10000;
-				/* This value has risk to be zero */
-				now_quota = tmp_quota + ((tmp_quota * (SLA_GOAL - now_sla)) / SLA_GOAL) / 3;
-				/* 
-				 * in the first time this timer function called
-				 * if prev_cpu_time == now_cpu_time, then cpu util is zero 
-				 * and it can not get accurate cpu util. so, defer quota calculation
-				 * to next time.
-				 */
-				if (unlikely(vm_cpu_util == 0)) {
-					tmp_quota = WORK_CONSERVING;
-					now_quota = WORK_CONSERVING;
-				}
 			}
-			set_vm_quota(i, now_quota);
-			gos_vm_list[i]->prev_quota = tmp_quota;
-			gos_vm_list[i]->now_quota = now_quota;
-			printk("gos: after now_quota: %ld, prev_quota: %ld\n", now_quota, tmp_quota); 
 		}
+		set_vm_quota(i, now_quota);
+		gos_vm_list[i]->prev_quota = tmp_quota;
+		gos_vm_list[i]->now_quota = now_quota;
+		printk("gos: after now_quota: %ld, prev_quota: %ld\n", now_quota, tmp_quota); 
 	}
+	if (sys_cpu_util > SYS_CPU_MAX_UTIL)
+		get_cpu_resource();
+	
 }
 
 void gos_timer_callback(unsigned long data)
@@ -297,6 +362,7 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 	struct gos_vm_info *tmp_vm_info = NULL;
 	int index = 0, f_free = 0, f_dup = 0, f_vm_off = 0;
 	char *tmp_buf = NULL;
+	struct pid *tmp_pid;
 
 	printk(KERN_INFO "Write information about target vm\n");
 
@@ -322,7 +388,6 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 
 		if(i_parm == 0) {
 			char *tmp_tok = strsep(&tosep, sep);
-
 			err = kstrtoll(tmp_tok, 10, &tmp_l);
 
 			if (strcmp(tok, "b_bw") == 0) {
@@ -361,20 +426,32 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 			strcpy(tmp_vm_info->sla_option, tok);
 			i_parm++;
 	
-		} else if(i_parm  == 2) {
-			err = kstrtoll(tok, 10, &tmp_l);
-			struct pid *tmp_pid = find_get_pid(tmp_l);
-			/* This function doesn't support CPU task now */
-			if (tmp_vm_info->control_type == network) {
-				tmp_vm_info->vhost = pid_task(tmp_pid, PIDTYPE_PID);
-				if (tmp_vm_info->vhost == NULL)
-					err = 1;
-			} else if (tmp_vm_info->control_type == ssd) {
-				tmp_vm_info->iothread = pid_task(tmp_pid, PIDTYPE_PID);
-				if (tmp_vm_info->iothread == NULL)
-					err = 1;
+		} else if (i_parm  == 2) {
+			if (tmp_vm_info->control_type == cpu) {
+				for (index = 0; index < VCPU_NUM; index++) {
+					kstrtoll(tok, 10, &tmp_l);
+					tmp_pid = find_get_pid(tmp_l);
+					tmp_vm_info->vcpu[index] = pid_task(tmp_pid, PIDTYPE_PID);
+					if (tmp_vm_info->vcpu[index] == NULL) {
+						err = 1;
+						break;
+					}
+					if (index != VCPU_NUM -1)
+						tok = strsep(&tosep, sep);
+				}
+			} else {				
+				err = kstrtoll(tok, 10, &tmp_l);
+				tmp_pid = find_get_pid(tmp_l);
+				if (tmp_vm_info->control_type == network) {
+					tmp_vm_info->vhost = pid_task(tmp_pid, PIDTYPE_PID);
+					if (tmp_vm_info->vhost == NULL)
+						err = 1;
+				} else if (tmp_vm_info->control_type == ssd) {
+					tmp_vm_info->iothread = pid_task(tmp_pid, PIDTYPE_PID);
+					if (tmp_vm_info->iothread == NULL)
+						err = 1;
+				}
 			}
-			
 			if (unlikely(err)) {
 				printk(KERN_INFO "gos: [WARNING] VM(PID:%lld) is off\n", tmp_l);
 				goto out;
@@ -389,9 +466,8 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 		i_parm++;
 	}
 
-
-
 	for (index = 0 ; index < VM_NUM ; index++) {
+		/*
 		if ((gos_vm_list[index] != NULL && 
 			task_pid_nr(tmp_vm_info->vhost) == task_pid_nr(gos_vm_list[index]->vhost)) ||
 			(gos_vm_list[index] != NULL && 
@@ -417,6 +493,12 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 			break;
 		} else if(index == VM_NUM - 1 && gos_vm_list[index] != NULL)
 			printk(KERN_INFO "[Error] Target VM is full\n");
+		*/
+		if (gos_vm_list[index] == NULL) {
+			printk("gos: gos_vm_info[%d] inserted\n", index);
+			gos_vm_list[index] = tmp_vm_info;
+			break;	
+		}
 	}
 
 	kfree(tmp_buf);

@@ -5,6 +5,10 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/cpumask.h>
+#include <linux/kernel_stat.h>
+#include <linux/tick.h>
+#include <linux/time.h>
 
 #if defined(GOS_SOURCE) || defined(CPU_SOURCE)
 
@@ -37,12 +41,13 @@
 */
 
 #define VCPU_NUM 4
-#define VM_NUM 2
+#define VM_NUM 4 
 #define SYS_CPU_UTIL_THRESHOLD 8500 /* 8500 = 85.00% */
 #define WORK_CONSERVING -1
 #define SLA_GOAL 10000
 #define EXIT_CPU_UTIL 1000
 #define PERIOD 100000	/* us, 100ms */
+#define SYS_CPU_MAX_UTIL 9800 /* 98.00% */
 
 enum gos_type {cpu, ssd, network};
 enum sla {b_bw, b_iops, b_lat, c_usg, n_mincredit, n_maxcredit, n_weight};
