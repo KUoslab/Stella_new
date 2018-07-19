@@ -88,7 +88,7 @@ static void get_cpu_resource(void)
 			now_quota = PERIOD;
 
 		for (k = 0; k < VM_NUM; k++) {
-			if (gos_vm_list[k]->control_type != cpu)
+			if (gos_vm_list[k]->control_type != cpu && gos_vm_list[k]->now_sla != 0)
 				dissatisfy_quantum += SLA_GOAL - gos_vm_list[k]->now_sla;
 		}
 
@@ -209,7 +209,7 @@ void feedback_controller(unsigned long elapsed_time)
 
 		printk("gos: before now_sla: %lu, prev_sla: %lu\n", now_sla, prev_sla);
 		printk("gos: before now_quota: %ld, prev_quota: %ld\n", now_quota, prev_quota); 
-		printk("gos: vm cpu util = %lu, %lu.%lu tmp_quota = %ld\n", vm_cpu_util, vm_cpu_util / 100, vm_cpu_util % 100, tmp_quota);
+		printk("gos: vm cpu util = %lu.%lu tmp_quota = %ld\n", vm_cpu_util / 100, vm_cpu_util % 100, tmp_quota);
 		/* initial state */
 		if (now_sla == 0 || vm_cpu_util < EXIT_CPU_UTIL) {
 			tmp_quota = now_quota;
@@ -242,6 +242,10 @@ void feedback_controller(unsigned long elapsed_time)
 				now_quota = WORK_CONSERVING;
 			}
 		}
+		
+		if (now_quota > PERIOD + (PERIOD / 3))
+			now_quota = vm_cpu_util * PERIOD / 10000;
+
 		set_vm_quota(i, now_quota);
 		gos_vm_list[i]->prev_quota = tmp_quota;
 		gos_vm_list[i]->now_quota = now_quota;
