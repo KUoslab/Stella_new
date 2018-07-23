@@ -45,7 +45,7 @@
 #define SYS_CPU_UTIL_THRESHOLD 8500 /* 8500 = 85.00% */
 #define WORK_CONSERVING -1
 #define SLA_GOAL 10000
-#define EXIT_CPU_UTIL 1000
+#define EXIT_CPU_UTIL 200 /* 2% */
 #define PERIOD 100000	/* us, 100ms */
 #define SYS_CPU_MAX_UTIL 9800 /* 98.00% */
 
