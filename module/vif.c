@@ -7,7 +7,10 @@
 #include<linux/kvm_host.h>
 #include<linux/sched.h>
 #include<../kernel/sched/sched.h>
+
 #include "common.h"
+#include "gos.h"
+
 struct proc_dir_vif{
 	char name[10];
 	int id;
