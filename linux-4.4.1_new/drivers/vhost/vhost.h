@@ -57,7 +57,7 @@ struct ancs_vm{
 	struct list_head proc_list;	/*AHN*/
 	struct vhost_poll *poll;
 	struct task_struct *vhost;
-
+	struct task_struct *parent;
 #ifdef CPU_CONTROL	
 	struct task_struct *vcpu[MAX_NUMBER_VCPU];
 	struct ancs_stat stat;
