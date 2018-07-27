@@ -70,84 +70,6 @@ int set_vm_quota(int vm_num, long quota)
 	return 0;
 }
 
-static void get_cpu_resource(void)
-{
-	long now_quota, dissatisfy_quantum = 0;
-	int i, k;
-
-	for (i = 0; i < VM_NUM; i++) {
-		if (gos_vm_list[i] == NULL)
-			continue;	
-			
-		if (gos_vm_list[i]->control_type != cpu)
-			continue;
-
-		now_quota = gos_vm_list[i]->now_quota;
-
-		if (now_quota == WORK_CONSERVING)
-			now_quota = PERIOD;
-
-		for (k = 0; k < VM_NUM; k++) {
-			if (gos_vm_list[k]->control_type != cpu && gos_vm_list[k]->now_sla != 0)
-				dissatisfy_quantum += SLA_GOAL - gos_vm_list[k]->now_sla;
-		}
-
-		if (dissatisfy_quantum > 0) {
-			/* now_quota = ... */
-		}
-
-		set_vm_quota(i, now_quota);
-		gos_vm_list[i]->now_quota = now_quota;	
-	}
-}
-
-/* tmp version */
-static unsigned long get_sys_cpu_util(void)
-{
-	u64 user, nice, system, idle, iowait, irq, softirq, steal;
-	u64 guest, guest_nice;
-	u64 total_time = 0, used_time = 0;
-	u64 tmp_total, tmp_used;
-	u64 sys_util, int_sys_util, flo_sys_util;
-	int i;
-	
-	user = nice = system = idle = iowait = irq = softirq = steal = 0;
-	guest = guest_nice = 0;
-
-	for_each_possible_cpu(i) {
-		user += kcpustat_cpu(i).cpustat[CPUTIME_USER];
-		nice += kcpustat_cpu(i).cpustat[CPUTIME_NICE];
-		system += kcpustat_cpu(i).cpustat[CPUTIME_SYSTEM];
-		idle += kcpustat_cpu(i).cpustat[CPUTIME_IDLE];
-		iowait += kcpustat_cpu(i).cpustat[CPUTIME_IOWAIT];
-		irq += kcpustat_cpu(i).cpustat[CPUTIME_IRQ];
-		softirq += kcpustat_cpu(i).cpustat[CPUTIME_SOFTIRQ];
-		steal += kcpustat_cpu(i).cpustat[CPUTIME_STEAL];
-		guest += kcpustat_cpu(i).cpustat[CPUTIME_GUEST];
-		guest_nice += kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE]; 
-	}
-	
-	total_time = user + nice + system + idle + iowait + irq + softirq + steal
-			+ guest + guest_nice;
-	used_time = total_time - idle;
-
-	if (prev_total_time == 0) {
-		prev_total_time = total_time;
-		prev_used_time = used_time;
-		sys_util = 0;
-	} else {
-		tmp_total = total_time - prev_total_time;
-		tmp_used = used_time - prev_used_time;
-		sys_util = (tmp_used * 10000) / tmp_total;
-		int_sys_util = sys_util / 100;
-		flo_sys_util = sys_util % 100;
-		prev_total_time = total_time;
-		prev_used_time = used_time;
-		printk("sys util : %lu.%lu\n", int_sys_util, flo_sys_util);
-	}
-	return sys_util;
-}
-
 static void update_vm_cpu_time(int vm_num)
 {
 	struct task_struct **ts, *vhost, *iothread;
@@ -178,7 +100,6 @@ static void update_vm_cpu_time(int vm_num)
 void feedback_controller(unsigned long elapsed_time)
 {
 	unsigned long vm_cpu_util;
-	unsigned long sys_cpu_util = get_sys_cpu_util();
 	unsigned long prev_cpu_time, now_cpu_time;
 	long now_quota, prev_quota, tmp_quota = 0;
 	unsigned long prev_sla, now_sla;
@@ -207,30 +128,35 @@ void feedback_controller(unsigned long elapsed_time)
 		/* 100.00% = 10000, gos_interval is 3s*/	
 		vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
 
-		printk("gos: before now_sla: %lu, prev_sla: %lu\n", now_sla, prev_sla);
-		printk("gos: before now_quota: %ld, prev_quota: %ld\n", now_quota, prev_quota); 
-		printk("gos: vm cpu util = %lu.%lu tmp_quota = %ld\n", vm_cpu_util / 100, vm_cpu_util % 100, tmp_quota);
+		/*
+		 * if you want increment and decrement speed of now_quota,
+		 * set INC_DEC_SPEED as follow
+		 * high speed = 3 or 2
+		 * low speed = 7 or 8
+		 * it has a risk that the now_quota value become minus if you
+		 * set high value (10 or 11?) to INC_DEC_SPEED. check it.
+		 */
+
 		/* initial state */
 		if (now_sla == 0 || vm_cpu_util < EXIT_CPU_UTIL) {
 			tmp_quota = now_quota;
 			now_quota = WORK_CONSERVING;
 		} else if (now_sla > OVERSATISFY) {
-			/* TODO tmp routine */
-			/* remove this routine if oios can calculate SLA alone */
 			tmp_quota = now_quota;
 			if (now_quota == WORK_CONSERVING)
 				now_quota = vm_cpu_util * PERIOD / 10000;
-			now_quota -= (now_quota * (now_sla - SLA_GOAL) / SLA_GOAL) / 3;
+			now_quota -= (now_quota * (now_sla - SLA_GOAL) / SLA_GOAL) / INC_DEC_SPEED;
 		} else if (now_sla < DISSATISFY && now_quota > 0) {	
 			tmp_quota = now_quota;
-			/* remove hared coded 10500. this is for not creating minus value */
-			/* slow down increasment speed */
-			//now_quota += (now_quota * (10500 - vm_cpu_util) / 10500) / 3;
-			now_quota += (now_quota * (SLA_GOAL - now_sla) / SLA_GOAL) / 3;
+			now_quota += (now_quota * (SLA_GOAL - now_sla) / SLA_GOAL) / INC_DEC_SPEED;
 		} else if (now_sla < DISSATISFY && now_quota == WORK_CONSERVING) {
-			tmp_quota = vm_cpu_util * PERIOD / 10000;
-			/* This value has risk to be zero */
-			now_quota = tmp_quota + ((tmp_quota * (SLA_GOAL - now_sla)) / SLA_GOAL) / 3;
+			if (now_sla < 5000)
+				now_quota = WORK_CONSERVING;
+			else { 
+				tmp_quota = vm_cpu_util * PERIOD / 10000;
+				/* This value has risk to be zero */
+				now_quota = tmp_quota + ((tmp_quota * (SLA_GOAL - now_sla)) / SLA_GOAL) / INC_DEC_SPEED;
+			}
 			/* 
 			 * in the first time this timer function called
 			 * if prev_cpu_time == now_cpu_time, then cpu util is zero 
@@ -249,11 +175,7 @@ void feedback_controller(unsigned long elapsed_time)
 		set_vm_quota(i, now_quota);
 		gos_vm_list[i]->prev_quota = tmp_quota;
 		gos_vm_list[i]->now_quota = now_quota;
-		printk("gos: after now_quota: %ld, prev_quota: %ld\n", now_quota, tmp_quota); 
 	}
-	//if (sys_cpu_util > SYS_CPU_MAX_UTIL)
-	//	get_cpu_resource();
-	
 }
 
 void gos_timer_callback(unsigned long data)
@@ -474,6 +396,7 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 	}
 
 	for (index = 0 ; index < VM_NUM ; index++) {
+		/* tmp remove */
 		/*
 		if ((gos_vm_list[index] != NULL && 
 			task_pid_nr(tmp_vm_info->vhost) == task_pid_nr(gos_vm_list[index]->vhost)) ||
@@ -575,6 +498,7 @@ static void __exit gos_exit(void)
 	{
 		if(gos_vm_list[i] != NULL)
 			kfree(gos_vm_list[i]);
+			gos_vm_list[i] = NULL;
 	}
 
 	if((err = exit_gos_proc())) printk(KERN_ALERT "[Error] Exit proc routine has error\n");

@@ -64,7 +64,6 @@ static void vcpu_control(struct ancs_vm *vif, unsigned long goal, unsigned long 
 	
 	if (goal < perf) {
 		before = get_vcpu_quota(vif);
-		after = calculate_vcpu_quota(before);
 		set_vcpu_quota(vif, after);
 		vif->vcpu_control = false;
 		return;		
@@ -125,7 +124,7 @@ static void quota_control(unsigned long data)
 	
 	credit_allocator->quota_balance = 0;
 #endif
-
+	
 	list_for_each_entry_safe(temp_vif, next_vif, &credit_allocator->active_vif_list, active_list) {
 		if (!temp_vif)
 			goto out;
@@ -153,6 +152,8 @@ static void quota_control(unsigned long data)
 		perf = temp_vif->pps;
 #endif
 		for (i = 0; i < VM_NUM; i++) {
+			if (gos_vm_list[i] == NULL)
+				continue;
 			if (gos_vm_list[i]->control_type == network &&
 			    gos_vm_list[i]->vhost->pid == temp_vif->vhost->pid) {
 				gos_vm_list[i]->prev_sla = gos_vm_list[i]->now_sla;
@@ -260,7 +261,12 @@ void add_active_vif(struct ancs_vm *vif)
 	spin_unlock_irqrestore(&credit_allocator->active_vif_list_lock, flags);
 
 #ifdef CPU_CONTROL
+	/*
 	previous = (struct task_struct *)vif->parent;
+	if(previous == NULL){
+		printk("ancs: Failed to assign vcpu pointers\n");
+		return;
+	}	
 	for (i=0;i<MAX_NUMBER_VCPU;i++) {
 		next = next_thread(previous);
 		if(next == NULL){
@@ -272,6 +278,7 @@ void add_active_vif(struct ancs_vm *vif)
 			previous = next;
 		}
 	}
+	*/
 #endif
 }
 
@@ -548,7 +555,7 @@ static int __init vif_init(void)
         idx = 0;
 	int cpu = smp_processor_id();
 	
-	credit_allocator = kmalloc(sizeof(struct credit_allocator), GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
+	credit_allocator = kzalloc(sizeof(struct credit_allocator), GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
 	if (!credit_allocator)
 		return -ENOMEM;	
 
@@ -559,7 +566,7 @@ static int __init vif_init(void)
 	INIT_LIST_HEAD(&credit_allocator->active_vif_list);
 	spin_lock_init(&credit_allocator->active_vif_list_lock);
 
-	proc_root_dir = proc_mkdir("oslab", NULL);
+	proc_root_dir = proc_mkdir("ancs", NULL);
 	
 	list_for_each(p, &ancs_proc_list) {
 		vif = list_entry(p, struct ancs_vm, proc_list);
@@ -634,7 +641,7 @@ static void __exit vif_exit(void)
 //	del_timer(&credit_allocator->account_timer);
 	del_timer(&credit_allocator->quota_timer);
 
-	remove_proc_entry("oslab", NULL);
+	remove_proc_entry("ancs", NULL);
         return;
 }
 
