@@ -11,20 +11,9 @@
 #include "common.h"
 #include "gos.h"
 
-struct proc_dir_vif {
-	char name[10];
-	int id;
-	struct proc_dir_entry *dir;
-	struct proc_dir_entry *file[10];
-};
-
 extern struct list_head ancs_proc_list;
 
-static struct proc_dir_entry *proc_root_dir;
-static struct proc_dir_vif proc_vif[20];
-static int idx;
 int ancs =0;
-int fileread = 0;
 
 struct credit_allocator *credit_allocator;
 
@@ -91,9 +80,23 @@ error:
 			
 }
 
+int add_network_sla(struct gos_vm_info *tmp_vm_info, long long vhost_pid)
+{
+	struct ancs_vm *tmp_vif, *next_vif;
+	
+	list_for_each_entry_safe(tmp_vif, next_vif, &credit_allocator->active_vif_list, active_list) {
+		if (tmp_vif->vhost->pid == vhost_pid) {
+			tmp_vm_info->priv_data = tmp_vif;
+			return 0;
+		}
+	}
+	return 1;
+}
+
+
 static void quota_control(unsigned long data)
 {
-	struct ancs_vm *temp_vif, *next_vif;
+	struct ancs_vm *temp_vif, *next_vif, *gos_vif;
 	unsigned long perf, goal;
 	unsigned long now_sla;
 	int i;
@@ -154,8 +157,11 @@ static void quota_control(unsigned long data)
 		for (i = 0; i < VM_NUM; i++) {
 			if (gos_vm_list[i] == NULL)
 				continue;
+			if (gos_vm_list[i]->priv_data == NULL)
+				continue;
+			gos_vif = (struct ancs_vm*)gos_vm_list[i]->priv_data;
 			if (gos_vm_list[i]->control_type == network &&
-			    gos_vm_list[i]->vhost->pid == temp_vif->vhost->pid) {
+			    gos_vif->vhost->pid == temp_vif->vhost->pid) {
 				gos_vm_list[i]->prev_sla = gos_vm_list[i]->now_sla;
 				gos_vm_list[i]->now_sla = perf * 10000 / goal;
 				break;
@@ -440,119 +446,12 @@ out:
 	mod_timer(&credit_allocator->account_timer, jiffies + msecs_to_jiffies(100));
 	return;
 }
-static ssize_t vif_write(struct file *file, const char __user* user_buffer, size_t count, loff_t *ppos)
-{
-        char* filename = file->f_path.dentry->d_name.name;
-	char* input = strsep(&user_buffer,"\n");
-       struct ancs_vm *vif;
-	char *endptr;
-        unsigned int value = simple_strtol(input, &endptr, 10);
-        
-        if (endptr == input && *endptr != '\0') {
-                printk("invalid input!\n");
-                return count;
-        }
-
-	vif = PDE_DATA(file_inode(file));	
-	if (!(vif)) {
-		printk(KERN_INFO "NULL Data\n");
-		return 0;
-	}
-
-	if (!strcmp(filename, "min_credit")) {
-		vif->min_credit = value;
-		goto out;
-        }
-	
-	if (!strcmp(filename, "max_credit")) {
-		vif->max_credit = value;
-		goto out;
-        }
-
-	if (!strcmp(filename, "weight")) {
-		vif->weight = value;
-		goto out;
-        }
-#ifdef CPU_CONTROL	
-	if (!strcmp(filename, "CPU_usage")) {
-		vif->stat.cpu_usage= value;
-		goto out;
-        }
-	if (!strcmp(filename, "kvm_virq")) {
-		vif->stat.virq= value;
-		goto out;
-        }
-#endif
-out:
-	return count;
-	
-}
-
-static ssize_t vif_read(struct file *file, char *buf, size_t count, loff_t *ppos)
-{
-	char* filename = file->f_path.dentry->d_name.name;
-	struct ancs_vm *vif;	
-	unsigned int len;
-	
-	vif = PDE_DATA(file_inode(file));
-	if (!(vif)) {
-                printk(KERN_INFO "NULL Data\n");
-                return 0;
-        }
-	if (!strcmp(filename, "min_credit")) {
-		len = sprintf(buf, "%d\n", vif->min_credit);
-		goto out;
-	} else if (!strcmp(filename, "max_credit")) {
-		len = sprintf(buf, "%d\n", vif->max_credit);
-		goto out;
-	} else if (!strcmp(filename, "weight")) {
-		len = sprintf(buf, "%d\n", vif->weight);
-		goto out;
-	} else if (!strcmp(filename, "remaining_credit")) {
-		len = sprintf(buf, "%d\n", vif->remaining_credit);
-		goto out;
-	} else if (!strcmp(filename, "used_credit")) {
-       		len = sprintf(buf, "%d\n", vif->used_credit);
-		goto out;
-	} else if (!strcmp(filename, "pid")) {
-		len = sprintf(buf, "%d\n", vif->vhost->pid);
-		goto out;
-	}
-#ifdef CPU_CONTROL	
-	else if (!strcmp(filename, "CPU_usage")) {
-       		len = sprintf(buf, "%d\n", vif->stat.cpu_usage);
-		goto out;
-	} else if (!strcmp(filename, "kvm_virq")) {
-		len = sprintf(buf, "%d\n", vif->stat.virq);
-		goto out;
-	}
-#endif	
-	else {
-		count = sprintf(buf, "%s", "ERROR");
-		return count;
-	}
-
-out:
-	if (fileread == 0) {
-        	fileread = 1;
-        	return len;
-	} else {
-		fileread = 0;
-		return 0;
-	}
-}
-
-static const struct file_operations vif_opt = {
-	.write = vif_write,
-	.read = vif_read,
-};
 
 
 static int __init vif_init(void)
 {
         struct list_head *p;
         struct ancs_vm *vif;
-        idx = 0;
 	int cpu = smp_processor_id();
 	
 	credit_allocator = kzalloc(sizeof(struct credit_allocator), GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
@@ -566,26 +465,10 @@ static int __init vif_init(void)
 	INIT_LIST_HEAD(&credit_allocator->active_vif_list);
 	spin_lock_init(&credit_allocator->active_vif_list_lock);
 
-	proc_root_dir = proc_mkdir("ancs", NULL);
 	
 	list_for_each(p, &ancs_proc_list) {
 		vif = list_entry(p, struct ancs_vm, proc_list);
 		add_active_vif(vif);
-		proc_vif[idx].id = (int)vif->id;
-		sprintf(proc_vif[idx].name, "vif%d", (int)vif->id);
-		proc_vif[idx].dir = proc_mkdir(proc_vif[idx].name, proc_root_dir);
-                proc_vif[idx].file[0] = proc_create_data("min_credit",0600, proc_vif[idx].dir, &vif_opt, vif);
-		proc_vif[idx].file[1] = proc_create_data("max_credit",0600, proc_vif[idx].dir, &vif_opt, vif);
-		proc_vif[idx].file[2] = proc_create_data("weight",0600, proc_vif[idx].dir, &vif_opt, vif);
-		proc_vif[idx].file[3] = proc_create_data("remaining_credit",0600, proc_vif[idx].dir, &vif_opt, vif);
-		proc_vif[idx].file[4] = proc_create_data("used_credit",0600, proc_vif[idx].dir, &vif_opt, vif);
-		proc_vif[idx].file[5] = proc_create_data("pid",0600, proc_vif[idx].dir, &vif_opt, vif);
-#ifdef CPU_CONTROL		
-		proc_vif[idx].file[6] = proc_create_data("CPU_usage",0600, proc_vif[idx].dir, &vif_opt, vif);
-		proc_vif[idx].file[7] = proc_create_data("vhost_usage",0600, proc_vif[idx].dir, &vif_opt, vif);
-		proc_vif[idx].file[8] = proc_create_data("kvm_virq",0600, proc_vif[idx].dir, &vif_opt, vif);
-#endif	
-		idx++;
         }
 	cpu = smp_processor_id();
 
@@ -618,21 +501,7 @@ static void __exit vif_exit(void)
 	int i;
         printk("EXIT!\n");
 
-        for(i=0; i<idx; i++){
-                remove_proc_entry("min_credit", proc_vif[i].dir);
-		remove_proc_entry("max_credit", proc_vif[i].dir);
-		remove_proc_entry("weight", proc_vif[i].dir);
-		remove_proc_entry("remaining_credit", proc_vif[i].dir);
-		remove_proc_entry("used_credit", proc_vif[i].dir);
-		remove_proc_entry("pid", proc_vif[i].dir);
-#ifdef CPU_CONTROL	
-		remove_proc_entry("CPU_usage", proc_vif[i].dir);
-		remove_proc_entry("vhost_usage", proc_vif[i].dir);
-		remove_proc_entry("kvm_virq", proc_vif[i].dir);
-#endif	
-		remove_proc_entry(proc_vif[i].name, proc_root_dir);
-        }
-	
+       
 	list_for_each(p, &ancs_proc_list){
 		vif = list_entry(p, struct ancs_vm, proc_list);
 		remove_active_vif(vif);

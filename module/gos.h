@@ -62,6 +62,8 @@ struct vm_perf {
 	unsigned long bandwidth;	// MB/s
 	unsigned long latency;		// ms
 	unsigned long cpu_usage;	// %
+	unsigned long credit;		// pps
+	unsigned long weight;
 };
 
 struct disk_stat {
@@ -96,6 +98,7 @@ struct gos_vm_info {
 	struct vm_perf now_perf;
 	unsigned long prev_cpu_time;
 	unsigned long now_cpu_time;
+	void *priv_data;
 
 	/* quota information */
 	long prev_quota;
@@ -108,6 +111,8 @@ struct gos_vm_info {
 /*
    Extern Area
 */
+
+int add_network_sla(struct gos_vm_info *tmp_vm_info, long long vhost_pid); 
 
 extern void cal_io_SLA_percent(int vm_num);
 extern void cal_cpu_SLA(int vm_num);

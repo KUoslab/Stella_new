@@ -336,12 +336,15 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 				tmp_vm_info->sla_type = c_usg;
 				tmp_vm_info->control_type = cpu;
 			} else if (strcmp(tok, "n_mincredit") == 0) {
+				tmp_vm_info->sla_target.credit = tmp_l;
 				tmp_vm_info->sla_type = n_mincredit;
 				tmp_vm_info->control_type = network;
 			} else if (strcmp(tok, "n_maxcredit") == 0) {
+				tmp_vm_info->sla_target.credit = tmp_l;
 				tmp_vm_info->sla_type = n_maxcredit;
 				tmp_vm_info->control_type = network;
 			} else if (strcmp(tok, "weight") == 0) {
+				tmp_vm_info->sla_target.weight = tmp_l;
 				tmp_vm_info->sla_type = n_weight;
 				tmp_vm_info->control_type = network;
 			} else if(strcmp(tok, "free") == 0) {
@@ -351,6 +354,7 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 				printk(KERN_INFO "gos: [Error] Wrong Parameter\n");
 				goto out;
 			}
+
 			tmp_vm_info->now_quota = WORK_CONSERVING;
 			strcpy(tmp_vm_info->sla_option, tok);
 			i_parm++;
@@ -374,6 +378,8 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 				if (tmp_vm_info->control_type == network) {
 					tmp_vm_info->vhost = pid_task(tmp_pid, PIDTYPE_PID);
 					if (tmp_vm_info->vhost == NULL)
+						err = 1;
+					if (add_network_sla(tmp_vm_info, tmp_l))
 						err = 1;
 				} else if (tmp_vm_info->control_type == ssd) {
 					tmp_vm_info->iothread = pid_task(tmp_pid, PIDTYPE_PID);
