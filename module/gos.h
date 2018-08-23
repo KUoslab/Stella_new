@@ -112,7 +112,7 @@ struct gos_vm_info {
    Extern Area
 */
 
-int add_network_sla(struct gos_vm_info *tmp_vm_info, long long vhost_pid); 
+extern int add_network_sla(struct gos_vm_info *tmp_vm_info, long long vhost_pid); 
 
 extern void cal_io_SLA_percent(int vm_num);
 extern void cal_cpu_SLA(int vm_num);

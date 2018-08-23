@@ -92,6 +92,7 @@ int add_network_sla(struct gos_vm_info *tmp_vm_info, long long vhost_pid)
 	}
 	return 1;
 }
+EXPORT_SYMBOL(add_network_sla);
 
 
 static void quota_control(unsigned long data)
