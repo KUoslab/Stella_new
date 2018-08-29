@@ -1,15 +1,20 @@
-net_vm=$1
-ssd_vm=$2
+vm=$1
+sla_option=$2
+sla_value=$3
 
-net_pid=`expr $(sudo grep domstatus /var/run/libvirt/qemu/${net_vm}.xml | tr -dc '0-9') + 2`
-ssd_pid=$(sudo grep domstatus /var/run/libvirt/qemu/${ssd_vm}.xml | tr -dc '0-9') 
-dev_string=$(virsh dumpxml ${ssd_vm} | egrep 'nvme|sd')
+pid=$(sudo grep domstatus /var/run/libvirt/qemu/${vm}.xml | tr -dc '0-9')
+dev_string=$(virsh dumpxml ${vm} | egrep 'nvme|sd')
 name_dev=${dev_string#*\'}
 name_dev=${name_dev%\'*}
 
-net_cmd="n_maxcredit 2000 ${net_pid} null"
-ssd_cmd="b_bw 300000 ${ssd_pid} ${name_dev}"
+if [ ! "${name_dev}"];then
+	name_dev="null"
+fi
 
-sudo echo 2000 > /proc/ancs/vif2/max_credit
-echo ${net_cmd} > /proc/gos_vm_info
-echo ${ssd_cmd} > /proc/gos_vm_info
+if [ "$2" = "n_maxcredit" ];then
+	pid=`expr ${pid} + 2`
+fi
+
+cmd="$1 $2 $3 ${pid} ${name_dev}"
+
+echo ${cmd} #> /proc/gos_vm_info

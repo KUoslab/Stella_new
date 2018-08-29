@@ -98,6 +98,7 @@ EXPORT_SYMBOL(add_network_sla);
 static void quota_control(unsigned long data)
 {
 	struct ancs_vm *temp_vif, *next_vif, *gos_vif;
+	struct gos_vm_sla *curr_sla;
 	unsigned long perf, goal;
 	unsigned long now_sla;
 	int i;
@@ -160,12 +161,16 @@ static void quota_control(unsigned long data)
 				continue;
 			if (gos_vm_list[i]->priv_data == NULL)
 				continue;
+			
 			gos_vif = (struct ancs_vm*)gos_vm_list[i]->priv_data;
-			if (gos_vm_list[i]->control_type == network &&
-			    gos_vif->vhost->pid == temp_vif->vhost->pid) {
-				gos_vm_list[i]->prev_sla = gos_vm_list[i]->now_sla;
-				gos_vm_list[i]->now_sla = perf * 10000 / goal;
-				break;
+			
+			list_for_each_entry(curr_sla, &(gos_vm_list[i]->sla_list), sla_list) {
+				if (curr_sla->control_type == network &&
+				    gos_vif->vhost->pid == temp_vif->vhost->pid) {
+					curr_sla->prev_sla = curr_sla->now_sla;
+					curr_sla->now_sla = perf * 10000 / goal;
+					break;
+				}
 			}
 		}		
 

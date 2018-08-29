@@ -73,21 +73,44 @@ struct disk_stat {
 	unsigned long wait;
 };
 
-struct gos_vm_info {
-	/* task_struct */
-	struct task_struct *vcpu[VCPU_NUM];
-	struct task_struct *vhost;
-	struct task_struct *iothread;
-
+struct gos_vm_sla {
 	/* 
-	 * SLA information
-	 * SLA: 100.00% = 10000 
+	 * SLA info
+	 * SLA : 100.00% = 10000
 	 */
 	unsigned long prev_sla;
 	unsigned long now_sla;
 	char sla_option[10];
 	struct vm_perf sla_target;
 	enum sla sla_type;
+
+	/* quota info */
+	long prev_quota;
+	long now_quota;
+
+	/* Target type to control VM's resource */
+	enum gos_type control_type;
+
+	/* for vm cpu uage */
+	unsigned long prev_cpu_time;
+	unsigned long now_cpu_time;
+
+	/* sla list */
+	struct list_head sla_list;
+};
+
+
+struct gos_vm_info {
+	/* VM info */
+	char vm_name[20];
+
+	/* sla list head */
+	struct list_head sla_list;
+
+	/* task_struct */
+	struct task_struct *vcpu[VCPU_NUM];
+	struct task_struct *vhost;
+	struct task_struct *iothread;
 
 	/* 
 	 * status value used by other modules which measure
@@ -96,16 +119,7 @@ struct gos_vm_info {
 	char dev_name[20];
 	struct disk_stat now_io_stat;
 	struct vm_perf now_perf;
-	unsigned long prev_cpu_time;
-	unsigned long now_cpu_time;
 	void *priv_data;
-
-	/* quota information */
-	long prev_quota;
-	long now_quota;
-
-	/* Target type to control VM's resource */
-	enum gos_type control_type;
 };
 
 /*
@@ -114,7 +128,7 @@ struct gos_vm_info {
 
 extern int add_network_sla(struct gos_vm_info *tmp_vm_info, long long vhost_pid); 
 
-extern void cal_io_SLA_percent(int vm_num);
+extern void cal_io_SLA_percent(int vm_num, struct gos_vm_sla *curr_sla);
 extern void cal_cpu_SLA(int vm_num);
 
 extern long tg_get_cfs_quota(struct task_group *tg);

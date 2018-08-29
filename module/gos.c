@@ -26,31 +26,15 @@ u64 prev_total_time, prev_used_time;
    Start of the feedback controller code
 */
 
-static long io_quota = 0;
 
-long get_vm_quota(int vm_num)
-{
-	long quota = 0;
-	if (gos_vm_list[vm_num] == NULL)
-		return 0;
-	
-	if (gos_vm_list[vm_num]->control_type == cpu)
-		quota = tg_get_cfs_quota(gos_vm_list[vm_num]->vcpu[0]->sched_task_group);
-	else if (gos_vm_list[vm_num]->control_type == network)
-		quota = tg_get_cfs_quota(gos_vm_list[vm_num]->vhost->sched_task_group);
-	else if (gos_vm_list[vm_num]->control_type == ssd) 
-		quota = tg_get_cfs_quota(gos_vm_list[vm_num]->iothread->sched_task_group);
-	return quota;
-}
-
-int set_vm_quota(int vm_num, long quota)
+int set_vm_quota(int vm_num, long quota, enum gos_type control_type)
 {
 	int i = 0;
 
 	if (gos_vm_list[vm_num] == NULL)
 		return 1;
 
-	if (gos_vm_list[vm_num]->control_type == cpu) {
+	if (control_type == cpu) {
 		for (i = 0 ; i < VCPU_NUM ; i++)
 		{
 			if(gos_vm_list[vm_num]->vcpu[i] != NULL)
@@ -62,43 +46,44 @@ int set_vm_quota(int vm_num, long quota)
 				return 1;
 			}
 		}
-	} else if (gos_vm_list[vm_num]->control_type == network)
+	} else if (control_type == network)
 		tg_set_cfs_quota(gos_vm_list[vm_num]->vhost->sched_task_group, quota);
-	else if (gos_vm_list[vm_num]->control_type == ssd)
+	else if (control_type == ssd)
 		tg_set_cfs_quota(gos_vm_list[vm_num]->iothread->sched_task_group, quota);
 	
 	return 0;
 }
 
-static void update_vm_cpu_time(int vm_num)
+static void update_vm_cpu_time(int vm_num, struct gos_vm_sla *curr_sla)
 {
 	struct task_struct **ts, *vhost, *iothread;
 	unsigned long tmp_total_time = 0;
 	int i;
 
-	if (gos_vm_list[vm_num]->control_type == cpu) {
+	if (curr_sla->control_type == cpu) {
 		ts = gos_vm_list[vm_num]->vcpu;
 		for (i = 0; i < VCPU_NUM; i++)
 			tmp_total_time += ts[i]->utime + ts[i]->stime;
-	} else if (gos_vm_list[vm_num]->control_type == network) {
+	} else if (curr_sla->control_type == network) {
 		vhost = gos_vm_list[vm_num]->vhost;
 		tmp_total_time = vhost->utime + vhost->stime;
-	} else if (gos_vm_list[vm_num]->control_type == ssd) {
+	} else if (curr_sla->control_type == ssd) {
 		iothread = gos_vm_list[vm_num]->iothread;
 		tmp_total_time = iothread->utime + iothread->stime;
 	}
 	
-	if (gos_vm_list[vm_num]->prev_cpu_time == 0)
-		gos_vm_list[vm_num]->prev_cpu_time = tmp_total_time;
+	if (curr_sla->prev_cpu_time == 0)
+		curr_sla->prev_cpu_time = tmp_total_time;
 	else
-		gos_vm_list[vm_num]->prev_cpu_time = gos_vm_list[vm_num]->now_cpu_time;
+		curr_sla->prev_cpu_time = curr_sla->now_cpu_time;
 	
-	gos_vm_list[vm_num]->now_cpu_time = tmp_total_time;
+	curr_sla->now_cpu_time = tmp_total_time;
 
 }
 
 void feedback_controller(unsigned long elapsed_time)
 {
+	struct gos_vm_sla *curr_sla;
 	unsigned long vm_cpu_util;
 	unsigned long prev_cpu_time, now_cpu_time;
 	long now_quota, prev_quota, tmp_quota = 0;
@@ -109,72 +94,89 @@ void feedback_controller(unsigned long elapsed_time)
 		if (gos_vm_list[i] == NULL)
 			continue;	
 		
-		if (gos_vm_list[i]->control_type == cpu)
-			continue;
+		list_for_each_entry(curr_sla, &(gos_vm_list[i]->sla_list), sla_list) {
+			printk("gos_debug_timer: vm name : %s sla type : %s ", gos_vm_list[i]->vm_name, curr_sla->sla_option);
 
-		if (gos_vm_list[i]->control_type == ssd)
-			cal_io_SLA_percent(i);
+			if (curr_sla->control_type == ssd)
+				printk("sla value : %d\n", curr_sla->sla_target.bandwidth);
+			else if (curr_sla->control_type == network)
+				printk("sla value : %d\n", curr_sla->sla_target.credit);
 
-		now_quota = gos_vm_list[i]->now_quota;
-		prev_quota = gos_vm_list[i]->prev_quota;
-		now_sla = gos_vm_list[i]->now_sla;
-		prev_sla = gos_vm_list[i]->prev_sla;
-		update_vm_cpu_time(i);
+			if (curr_sla->control_type == cpu)
+				continue;
 
-		/* vm_cpu_util value 10000 = 100.00% */
-		/* ms */
-		prev_cpu_time = gos_vm_list[i]->prev_cpu_time * 1000 / HZ;
-		now_cpu_time = gos_vm_list[i]->now_cpu_time * 1000 / HZ;
-		/* 100.00% = 10000, gos_interval is 3s*/	
-		vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
+			if (curr_sla->control_type == ssd)
+				cal_io_SLA_percent(i, curr_sla);
 
-		/*
-		 * if you want increment and decrement speed of now_quota,
-		 * set INC_DEC_SPEED as follow
-		 * high speed = 3 or 2
-		 * low speed = 7 or 8
-		 * it has a risk that the now_quota value become minus if you
-		 * set high value (10 or 11?) to INC_DEC_SPEED. check it.
-		 */
+			now_quota = curr_sla->now_quota;
+			prev_quota = curr_sla->prev_quota;
+			now_sla = curr_sla->now_sla;
+			prev_sla = curr_sla->prev_sla;
+			update_vm_cpu_time(i, curr_sla);
+			
+			/* vm_cpu_util value 10000 = 100.00% */
+			/* ms */
+			prev_cpu_time = curr_sla->prev_cpu_time * 1000 / HZ;
+			now_cpu_time = curr_sla->now_cpu_time * 1000 / HZ;
+			/* 100.00% = 10000, gos_interval is 3s*/
+			vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
 
-		/* initial state */
-		if (now_sla == 0 || vm_cpu_util < EXIT_CPU_UTIL) {
-			tmp_quota = now_quota;
-			now_quota = WORK_CONSERVING;
-		} else if (now_sla > OVERSATISFY) {
-			tmp_quota = now_quota;
-			if (now_quota == WORK_CONSERVING)
-				now_quota = vm_cpu_util * PERIOD / 10000;
-			now_quota -= (now_quota * (now_sla - SLA_GOAL) / SLA_GOAL) / INC_DEC_SPEED;
-		} else if (now_sla < DISSATISFY && now_quota > 0) {	
-			tmp_quota = now_quota;
-			now_quota += (now_quota * (SLA_GOAL - now_sla) / SLA_GOAL) / INC_DEC_SPEED;
-		} else if (now_sla < DISSATISFY && now_quota == WORK_CONSERVING) {
-			if (now_sla < 5000)
-				now_quota = WORK_CONSERVING;
-			else { 
-				tmp_quota = vm_cpu_util * PERIOD / 10000;
-				/* This value has risk to be zero */
-				now_quota = tmp_quota + ((tmp_quota * (SLA_GOAL - now_sla)) / SLA_GOAL) / INC_DEC_SPEED;
-			}
-			/* 
-			 * in the first time this timer function called
-			 * if prev_cpu_time == now_cpu_time, then cpu util is zero 
-			 * and it can not get accurate cpu util. so, defer quota calculation
-			 * to next time.
+			printk("gos: before now_sla: %lu, prev_sla: %lu\n", now_sla, prev_sla);
+			printk("gos: before now_quota: %ld, prev_quota: %ld\n", now_quota, prev_quota);
+			printk("gos: vm cpu util = %lu.%lu\n", vm_cpu_util / 100, vm_cpu_util % 100);
+
+			/*
+			 * if you want increment and decrement speed of now_quota,
+			 * set INC_DEC_SPEED as follow
+			 * high speed = 3 or 2
+			 * low speed = 7 or 8
+			 * it has a risk that the now_quota value become minus if you
+			 * set high value (10 or 11?) to INC_DEC_SPEED. check it.
 			 */
-			if (unlikely(vm_cpu_util == 0)) {
-				tmp_quota = WORK_CONSERVING;
+	
+			/* initial state */
+			if (now_sla == 0 || vm_cpu_util < EXIT_CPU_UTIL) {
+				tmp_quota = now_quota;
 				now_quota = WORK_CONSERVING;
+			} else if (now_sla > OVERSATISFY) {
+				tmp_quota = now_quota;
+				if (now_quota == WORK_CONSERVING)
+					now_quota = vm_cpu_util * PERIOD / 10000;
+				now_quota -= (now_quota * (now_sla - SLA_GOAL) / SLA_GOAL) / INC_DEC_SPEED;
+			} else if (now_sla < DISSATISFY && now_quota > 0) {	
+				tmp_quota = now_quota;
+				now_quota += (now_quota * (SLA_GOAL - now_sla) / SLA_GOAL) / INC_DEC_SPEED;
+			} else if (now_sla < DISSATISFY && now_quota == WORK_CONSERVING) {
+				if (now_sla < 5000)
+					now_quota = WORK_CONSERVING;
+				else { 
+					tmp_quota = vm_cpu_util * PERIOD / 10000;
+					/* This value has risk to be zero */
+					now_quota = tmp_quota + ((tmp_quota * (SLA_GOAL - now_sla)) / SLA_GOAL) 
+								/ INC_DEC_SPEED;
+				}
+				/* 
+				 * in the first time this timer function called
+				 * if prev_cpu_time == now_cpu_time, then cpu util is zero 
+				 * and it can not get accurate cpu util. so, defer quota calculation
+				 * to next time.
+				 */
+				if (unlikely(vm_cpu_util == 0)) {
+					tmp_quota = WORK_CONSERVING;
+					now_quota = WORK_CONSERVING;
+				}
 			}
+			
+			if (now_quota > PERIOD + (PERIOD / 3))
+				now_quota = vm_cpu_util * PERIOD / 10000;
+	
+			set_vm_quota(i, now_quota, curr_sla->control_type);
+			curr_sla->prev_quota = tmp_quota;
+			curr_sla->now_quota = now_quota;
+			printk("gos: after now_quota: %ld, prev_quota: %ld\n", now_quota, tmp_quota);
+			printk("--------------------------------------------\n");
+	
 		}
-		
-		if (now_quota > PERIOD + (PERIOD / 3))
-			now_quota = vm_cpu_util * PERIOD / 10000;
-
-		set_vm_quota(i, now_quota);
-		gos_vm_list[i]->prev_quota = tmp_quota;
-		gos_vm_list[i]->now_quota = now_quota;
 	}
 }
 
@@ -220,28 +222,12 @@ static inline int exit_gos_timer(void)
 	return 0;
 }
 
-/*
-   Start of the proc file system code9
-*/
-
-static inline int get_int_from_char(char *tmp_s, int start, int end)
-{
-	int int_result = 0, i = 0;
-
-	for(i = start ; i < end-1 ; i++)
-	{
-		int_result *= 10;
-
-		int_result += tmp_s[i] - 0x30;
-	}
-
-	return int_result;
-}
-
+/* TODO we should change sla values (gos_vm_list[i]->XXX) to gos_vm_sla->XXX */
 static int gos_vm_info_show(struct seq_file *m, void *v)
 {
+	/*
 	int i = 0;
-
+	
 	seq_puts(m, "VM_NUM\tSLA Option\tSLA Value\tSLA Percentage\tDevice Name\tPeriod\tQuota\n");
 
 	for(i = 0 ; i < VM_NUM ; i++)
@@ -271,10 +257,10 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 
 			if(gos_vm_list[i]->vcpu[j] != NULL)
 			{
-			/*	if(gos_vm_list[i]->sla_type == c_usg)
+				if(gos_vm_list[i]->sla_type == c_usg)
 					seq_printf(m, "\t%ld\t%ld\n", get_vm_period(i), get_vm_quota(i));
 				else
-					seq_printf(m, "\t%ld\t%ld\n", get_vm_period(i), gos_vm_list[i]->now_quota);*/
+					seq_printf(m, "\t%ld\t%ld\n", get_vm_period(i), gos_vm_list[i]->now_quota);
 
 				seq_printf(m, "\t%ld\t%ld\n", PERIOD, gos_vm_list[i]->prev_quota);
 			}
@@ -282,22 +268,28 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 				seq_printf(m, "\n");
 		}
 	}
-
+	*/
 	return 0;
 }
 
+/*
+ * SLA insertion format
+ * [VM_NAME] [SLA_TYPE] [SLA_VALUE] [PID] [DEVICE_NAME]
+ */
 static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t *l)
 {
 	struct gos_vm_info *tmp_vm_info = NULL;
-	int index = 0, f_free = 0, f_dup = 0, f_vm_off = 0;
-	char *tmp_buf = NULL;
+	struct gos_vm_sla *tmp_vm_sla = NULL, *curr_sla;
+	int index = 0, is_vm_exist = 0, replace_sla = 0;
+	int i_parm = 0, str_len;
+	char *tmp_buf = NULL, *tosep, *tok = NULL;
+	char *sep = " ";
 	struct pid *tmp_pid;
 
 	printk(KERN_INFO "Write information about target vm\n");
 
 	tmp_buf = kzalloc(sizeof(char) * s, GFP_KERNEL);
-	if (!tmp_buf)
-	{
+	if (!tmp_buf) {
 		printk(KERN_INFO "[Error] Can not allocate buffer\n");
 		return s;
 	}
@@ -305,137 +297,156 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 	copy_from_user(tmp_buf, u, s);
 	tmp_buf[s-1] = '\0';
 
-	char *tosep = tmp_buf, *tok = NULL;
-	char *sep = " ";
-	int i_parm = 0;
+	tosep = tmp_buf;
 
-	tmp_vm_info = kzalloc(sizeof(struct gos_vm_info), GFP_KERNEL);
 
 	while((tok = strsep(&tosep, sep)) != NULL) {
 		int err = 0;
 		long long tmp_l = 0;
 
-		if(i_parm == 0) {
+		if (i_parm == 0) {
+			for (index = 0; index < VM_NUM; index++) {
+				if (!gos_vm_list[index])
+					continue;
+	
+				str_len = strlen(tok);
+				printk("gos_debug: gos_vm_list->vm_name : %s tok : %s, len : %d\n",
+						gos_vm_list[index]->vm_name, tok, str_len);
+				if (!strncmp(gos_vm_list[index]->vm_name, tok, str_len)) {
+					printk("gos_debug: gos_vm_list is already exist\n");
+					tmp_vm_info = gos_vm_list[index];
+					is_vm_exist = 1;
+					break;
+				}
+			}
+
+			if (!is_vm_exist) {
+				tmp_vm_info = kzalloc(sizeof(struct gos_vm_info), GFP_KERNEL);
+				INIT_LIST_HEAD(&(tmp_vm_info->sla_list));
+				strcpy(tmp_vm_info->vm_name, tok);
+				printk("gos_debug: create new gos_vm_info and init sla list\n");
+			}
+			tmp_vm_sla = kzalloc(sizeof(*tmp_vm_sla), GFP_KERNEL);
+
+		} else if (i_parm  == 1) {
 			char *tmp_tok = strsep(&tosep, sep);
 			err = kstrtoll(tmp_tok, 10, &tmp_l);
 
 			if (strcmp(tok, "b_bw") == 0) {
-				tmp_vm_info->sla_target.bandwidth = tmp_l;
-				tmp_vm_info->sla_type = b_bw;
-				tmp_vm_info->control_type = ssd;
+				tmp_vm_sla->sla_target.bandwidth = tmp_l;
+				tmp_vm_sla->sla_type = b_bw;
+				tmp_vm_sla->control_type = ssd;
 			} else if (strcmp(tok, "b_iops") == 0) {
-				tmp_vm_info->sla_target.iops = tmp_l;
-				tmp_vm_info->sla_type = b_iops;
-				tmp_vm_info->control_type = ssd;
+				tmp_vm_sla->sla_target.iops = tmp_l;
+				tmp_vm_sla->sla_type = b_iops;
+				tmp_vm_sla->control_type = ssd;
 			} else if (strcmp(tok, "b_lat") == 0) {
-				tmp_vm_info->sla_target.latency = tmp_l;
-				tmp_vm_info->sla_type = b_lat;
-				tmp_vm_info->control_type = ssd;	
+				tmp_vm_sla->sla_target.latency = tmp_l;
+				tmp_vm_sla->sla_type = b_lat;
+				tmp_vm_sla->control_type = ssd;	
 			} else if (strcmp(tok, "c_usage") == 0) {
-				tmp_vm_info->sla_target.cpu_usage = tmp_l;
-				tmp_vm_info->sla_type = c_usg;
-				tmp_vm_info->control_type = cpu;
+				tmp_vm_sla->sla_target.cpu_usage = tmp_l;
+				tmp_vm_sla->sla_type = c_usg;
+				tmp_vm_sla->control_type = cpu;
 			} else if (strcmp(tok, "n_mincredit") == 0) {
-				tmp_vm_info->sla_target.credit = tmp_l;
-				tmp_vm_info->sla_type = n_mincredit;
-				tmp_vm_info->control_type = network;
+				tmp_vm_sla->sla_target.credit = tmp_l;
+				tmp_vm_sla->sla_type = n_mincredit;
+				tmp_vm_sla->control_type = network;
 			} else if (strcmp(tok, "n_maxcredit") == 0) {
-				tmp_vm_info->sla_target.credit = tmp_l;
-				tmp_vm_info->sla_type = n_maxcredit;
-				tmp_vm_info->control_type = network;
+				tmp_vm_sla->sla_target.credit = tmp_l;
+				tmp_vm_sla->sla_type = n_maxcredit;
+				tmp_vm_sla->control_type = network;
 			} else if (strcmp(tok, "weight") == 0) {
-				tmp_vm_info->sla_target.weight = tmp_l;
-				tmp_vm_info->sla_type = n_weight;
-				tmp_vm_info->control_type = network;
-			} else if(strcmp(tok, "free") == 0) {
-				f_free = 1;
-				break;
+				tmp_vm_sla->sla_target.weight = tmp_l;
+				tmp_vm_sla->sla_type = n_weight;
+				tmp_vm_sla->control_type = network;
 			} else {
 				printk(KERN_INFO "gos: [Error] Wrong Parameter\n");
 				goto out;
 			}
-
-			tmp_vm_info->now_quota = WORK_CONSERVING;
-			strcpy(tmp_vm_info->sla_option, tok);
+			printk("gos_debug: sla option, value are inserted to gos_vm_sla\n");
+			tmp_vm_sla->now_quota = WORK_CONSERVING;
+			strcpy(tmp_vm_sla->sla_option, tok);
 			i_parm++;
-	
-		} else if (i_parm  == 2) {
-			if (tmp_vm_info->control_type == cpu) {
-				for (index = 0; index < VCPU_NUM; index++) {
-					kstrtoll(tok, 10, &tmp_l);
-					tmp_pid = find_get_pid(tmp_l);
-					tmp_vm_info->vcpu[index] = pid_task(tmp_pid, PIDTYPE_PID);
-					if (tmp_vm_info->vcpu[index] == NULL) {
-						err = 1;
-						break;
+		} else if (i_parm == 3) {
+			if (tmp_vm_sla->control_type == cpu) {
+				if (tmp_vm_info->vcpu)
+					replace_sla = 1;
+				else {
+					for (index = 0; index < VCPU_NUM; index++) {
+						kstrtoll(tok, 10, &tmp_l);
+						tmp_pid = find_get_pid(tmp_l);
+						tmp_vm_info->vcpu[index] = pid_task(tmp_pid, PIDTYPE_PID);
+						if (tmp_vm_info->vcpu[index] == NULL) {
+							goto out;
+							break;
+						}
+						if (index != VCPU_NUM -1)
+							tok = strsep(&tosep, sep);
 					}
-					if (index != VCPU_NUM -1)
-						tok = strsep(&tosep, sep);
 				}
 			} else {				
 				err = kstrtoll(tok, 10, &tmp_l);
 				tmp_pid = find_get_pid(tmp_l);
-				if (tmp_vm_info->control_type == network) {
-					tmp_vm_info->vhost = pid_task(tmp_pid, PIDTYPE_PID);
+				if (tmp_vm_sla->control_type == network) {
+					if (tmp_vm_info->vhost) {
+						printk("gos_debug: replace network sla value\n");
+						replace_sla = 1;
+					}
+					else
+						tmp_vm_info->vhost = pid_task(tmp_pid, PIDTYPE_PID);
+
 					if (tmp_vm_info->vhost == NULL)
-						err = 1;
+						goto out;
 					if (add_network_sla(tmp_vm_info, tmp_l))
-						err = 1;
-				} else if (tmp_vm_info->control_type == ssd) {
-					tmp_vm_info->iothread = pid_task(tmp_pid, PIDTYPE_PID);
+						goto out;
+					printk("gos_debug: new vhost is inserted\n");
+				} else if (tmp_vm_sla->control_type == ssd) {
+					if (tmp_vm_info->iothread) {
+						printk("gos_debug: replace ssd io sla value\n");
+						replace_sla = 1;
+					}
+					else
+						tmp_vm_info->iothread = pid_task(tmp_pid, PIDTYPE_PID);
+
 					if (tmp_vm_info->iothread == NULL)
-						err = 1;
+						goto out;
+					printk("gos_debug: new iothread is inserted\n");
 				}
 			}
-			if (unlikely(err)) {
-				printk(KERN_INFO "gos: [WARNING] VM(PID:%lld) is off\n", tmp_l);
-				goto out;
+		} else if(i_parm == 4) {
+			if (tmp_vm_sla->control_type == ssd) {
+				strcpy(tmp_vm_info->dev_name, tok);
+				printk("gos_debug: device name is inserted\n");
 			}
-		} else if(i_parm == 3) {
-			strcpy(tmp_vm_info->dev_name, tok);
-			/* what doesi it mean? */
-			if(strncmp(tmp_vm_info->dev_name, "/dev/nvme", 9) == 0)
-				tmp_vm_info->control_type = cpu;
 		}
 
 		i_parm++;
 	}
 
-	for (index = 0 ; index < VM_NUM ; index++) {
-		/* tmp remove */
-		/*
-		if ((gos_vm_list[index] != NULL && 
-			task_pid_nr(tmp_vm_info->vhost) == task_pid_nr(gos_vm_list[index]->vhost)) ||
-			(gos_vm_list[index] != NULL && 
-			task_pid_nr(tmp_vm_info->iothread) == task_pid_nr(gos_vm_list[index]->iothread))) {
-			
-			kfree(gos_vm_list[index]);
-			gos_vm_list[index] = NULL;
-
-			if(f_free == 1) {
-				printk(KERN_INFO "Free VM %d\n", index);
-				goto out;
-			} else {
-				gos_vm_list[index] = tmp_vm_info;
-				f_dup = 1;
+	/* insert tmp_vm_info to gos_vm_list */
+	if (is_vm_exist) {
+		if (replace_sla) {
+			list_for_each_entry(curr_sla, &(tmp_vm_info->sla_list), sla_list) {
+				if (curr_sla->control_type == tmp_vm_sla->control_type)
+					break;
 			}
-			break;
-		} else if(gos_vm_list[index] == NULL) {
-			if(f_free != 1 && f_dup != 1)
+			list_del(&(curr_sla->sla_list));
+			kfree(curr_sla);
+			printk("gos: replace sla value\n");
+		} else {
+			printk("gos: add new sla value for already existed VM\n");
+		}
+	} else {
+		for (index = 0; index < VM_NUM; index++) {
+			if (gos_vm_list[index] == NULL) {
+				printk("gos: gos_vm_info[%d] inserted\n", index);
 				gos_vm_list[index] = tmp_vm_info;
-			else
-				f_dup = 0;
-
-			break;
-		} else if(index == VM_NUM - 1 && gos_vm_list[index] != NULL)
-			printk(KERN_INFO "[Error] Target VM is full\n");
-		*/
-		if (gos_vm_list[index] == NULL) {
-			printk("gos: gos_vm_info[%d] inserted\n", index);
-			gos_vm_list[index] = tmp_vm_info;
-			break;	
+				break;
+			}
 		}
 	}
+	list_add_tail(&(tmp_vm_sla->sla_list), &(tmp_vm_info->sla_list));
 
 	kfree(tmp_buf);
 
@@ -443,7 +454,9 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 
 out:
 	kfree(tmp_buf);
-	kfree(tmp_vm_info);
+	if (!is_vm_exist)
+		kfree(tmp_vm_info);
+	kfree(tmp_vm_sla);
 	return s;	
 }
 
@@ -499,10 +512,16 @@ static int __init gos_init(void)
 static void __exit gos_exit(void)
 {
 	int i = 0, err = 0;
+	struct gos_vm_sla *curr_sla, *next_sla;
 
 	for(i = 0 ; i < VM_NUM ; i++)
 	{
 		if(gos_vm_list[i] != NULL)
+			list_for_each_entry_safe(curr_sla, next_sla, &(gos_vm_list[i]->sla_list), sla_list) {
+				list_del(&(curr_sla->sla_list));
+				kfree(curr_sla);
+			}
+
 			kfree(gos_vm_list[i]);
 			gos_vm_list[i] = NULL;
 	}
