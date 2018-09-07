@@ -398,7 +398,7 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 
 					if (tmp_vm_info->vhost == NULL)
 						goto out;
-					if (add_network_sla(tmp_vm_info, tmp_l))
+					if (add_network_sla(tmp_vm_info, tmp_vm_sla, tmp_l))
 						goto out;
 					printk("gos_debug: new vhost is inserted\n");
 				} else if (tmp_vm_sla->control_type == ssd) {

@@ -80,12 +80,13 @@ error:
 			
 }
 
-int add_network_sla(struct gos_vm_info *tmp_vm_info, long long vhost_pid)
+int add_network_sla(struct gos_vm_info *tmp_vm_info, struct gos_vm_sla *tmp_vm_sla, long long vhost_pid)
 {
 	struct ancs_vm *tmp_vif, *next_vif;
 	
 	list_for_each_entry_safe(tmp_vif, next_vif, &credit_allocator->active_vif_list, active_list) {
 		if (tmp_vif->vhost->pid == vhost_pid) {
+			tmp_vif->max_credit = tmp_vm_sla->sla_target.credit;
 			tmp_vm_info->priv_data = tmp_vif;
 			return 0;
 		}
