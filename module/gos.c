@@ -356,7 +356,7 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 				tmp_vm_sla->sla_target.credit = tmp_l;
 				tmp_vm_sla->sla_type = n_maxcredit;
 				tmp_vm_sla->control_type = network;
-			} else if (strcmp(tok, "weight") == 0) {
+			} else if (strcmp(tok, "n_weight") == 0) {
 				tmp_vm_sla->sla_target.weight = tmp_l;
 				tmp_vm_sla->sla_type = n_weight;
 				tmp_vm_sla->control_type = network;
