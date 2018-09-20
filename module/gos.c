@@ -225,50 +225,44 @@ static inline int exit_gos_timer(void)
 /* TODO we should change sla values (gos_vm_list[i]->XXX) to gos_vm_sla->XXX */
 static int gos_vm_info_show(struct seq_file *m, void *v)
 {
-	/*
+	struct gos_vm_sla *curr_sla;
+	int sla_value;
+	int int_sla, flt_sla;
+	char *vm_name, *sla_option;
 	int i = 0;
 	
-	seq_puts(m, "VM_NUM\tSLA Option\tSLA Value\tSLA Percentage\tDevice Name\tPeriod\tQuota\n");
+	seq_puts(m, "VM_NAME\tSLA Option\tSLA Value\tSLA Percentage\n");
 
 	for(i = 0 ; i < VM_NUM ; i++)
 	{
-		if(gos_vm_list[i] != NULL)
-		{
-			int j = 0, sla_value = 0;
-			char *sla_option = gos_vm_list[i]->sla_option;
+		if(gos_vm_list[i] != NULL) {
+			vm_name = gos_vm_list[i]->vm_name;
+					
+			list_for_each_entry(curr_sla, &(gos_vm_list[i]->sla_list), sla_list) {
+				if (curr_sla->sla_type == b_bw)
+					sla_value = curr_sla->sla_target.bandwidth;
+				else if (curr_sla->sla_type == b_iops)
+					sla_value = curr_sla->sla_target.iops;
+				else if (curr_sla->sla_type == b_lat)
+					sla_value = curr_sla->sla_target.latency;
+				else if (curr_sla->sla_type == n_mincredit)
+					sla_value = curr_sla->sla_target.credit;
+				else if (curr_sla->sla_type == n_maxcredit)
+					sla_value = curr_sla->sla_target.credit;
+				else if (curr_sla->sla_type == n_weight)
+					sla_value = curr_sla->sla_target.weight;
+	
+				int_sla = curr_sla->now_sla / 100;
+				flt_sla = curr_sla->now_sla % 100;
+				sla_option = curr_sla->sla_option;
 
-			if(gos_vm_list[i]->sla_type == b_iops)
-				sla_value = gos_vm_list[i]->sla_target.iops;
-			else if(gos_vm_list[i]->sla_type == b_bw)
-				sla_value = gos_vm_list[i]->sla_target.bandwidth;
-			else if(gos_vm_list[i]->sla_type == b_lat) 
-				sla_value = gos_vm_list[i]->sla_target.latency;
-			else if(gos_vm_list[i]->sla_type == c_usg)
-				sla_value = gos_vm_list[i]->sla_target.cpu_usage;
-			else
-				sla_value = -1;
+				seq_printf(m, "%s\t%s\t%d\t%d.%d\n", vm_name, sla_option, 
+					sla_value, int_sla, flt_sla);
 
-			if(sla_value > 100000000)
-				seq_printf(m, "%d\t%s\t\t%d\t\t%ld\t%s", i, sla_option, 
-					sla_value, gos_vm_list[i]->now_sla, gos_vm_list[i]->dev_name);
-			else
-				seq_printf(m, "%d\t%s\t\t%d\t\t%ld\t\t%s", i, sla_option, 
-					sla_value, gos_vm_list[i]->now_sla, gos_vm_list[i]->dev_name);
 
-			if(gos_vm_list[i]->vcpu[j] != NULL)
-			{
-				if(gos_vm_list[i]->sla_type == c_usg)
-					seq_printf(m, "\t%ld\t%ld\n", get_vm_period(i), get_vm_quota(i));
-				else
-					seq_printf(m, "\t%ld\t%ld\n", get_vm_period(i), gos_vm_list[i]->now_quota);
-
-				seq_printf(m, "\t%ld\t%ld\n", PERIOD, gos_vm_list[i]->prev_quota);
 			}
-			else
-				seq_printf(m, "\n");
 		}
 	}
-	*/
 	return 0;
 }
 
