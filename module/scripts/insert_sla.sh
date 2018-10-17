@@ -1,3 +1,5 @@
+#!/bin/sh
+
 vm=$1
 sla_option=$2
 sla_value=$3
