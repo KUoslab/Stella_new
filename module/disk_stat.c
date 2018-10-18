@@ -60,6 +60,11 @@ void cal_io_SLA_percent(int vm_num, struct gos_vm_sla *curr_sla)
 	if (gos_vm_list[vm_num] == NULL) 
 		return;
 
+	if (strncmp(gos_vm_list[vm_num]->dev_name, "null", 4) == 0) {
+		printk("disk stat: null device error\n");
+		return;
+	}		
+
 	get_disk_stat(gos_vm_list[vm_num]->dev_name, &now_disk_stat); // now_disk_stat update
 #ifdef DEBUG
 	printk(KERN_INFO "disk stat : ios:%lu / sectors:%lu / ticks:%lums / wait:%lums\n", \

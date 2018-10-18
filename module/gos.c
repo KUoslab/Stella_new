@@ -169,6 +169,9 @@ void feedback_controller(unsigned long elapsed_time)
 			
 			if (now_quota > PERIOD + (PERIOD / 3))
 				now_quota = vm_cpu_util * PERIOD / 10000;
+
+			if (now_quota < -1)
+				now_quota = (vm_cpu_util * PERIOD / 10000) * 2;
 	
 			set_vm_quota(i, now_quota, curr_sla->control_type);
 			curr_sla->prev_quota = tmp_quota;
@@ -447,6 +450,7 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 	return s;
 
 out:
+	printk("gos_debug : error\n");
 	kfree(tmp_buf);
 	if (!is_vm_exist)
 		kfree(tmp_vm_info);

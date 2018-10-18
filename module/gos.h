@@ -41,14 +41,14 @@
 */
 
 #define VCPU_NUM 4
-#define VM_NUM 4 
+#define VM_NUM 10 
 #define SYS_CPU_UTIL_THRESHOLD 8500 /* 8500 = 85.00% */
 #define WORK_CONSERVING -1
 #define SLA_GOAL 10000
-#define EXIT_CPU_UTIL 100 /* 1% */
+#define EXIT_CPU_UTIL 50 /* 0.5% */
 #define PERIOD 100000	/* us, 100ms */
 #define SYS_CPU_MAX_UTIL 9800 /* 98.00% */
-#define INC_DEC_SPEED 5
+#define INC_DEC_SPEED 4
 
 enum gos_type {cpu, ssd, network};
 enum sla {b_bw, b_iops, b_lat, c_usg, n_mincredit, n_maxcredit, n_weight};
