@@ -126,7 +126,7 @@ do
         echo
 
         WaitForTheTime
-	sysbench --test=cpu --cpu-max-prime=40000000 --num-threads=4 run
+	sysbench --test=cpu --max-time=180 --cpu-max-prime=500000000 --num-threads=4 run 
 	A=`expr $A + 1`
 done
 
