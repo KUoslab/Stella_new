@@ -91,6 +91,7 @@ First, edit your performance requirements fields (sla_option, sla_vlaue) in ```i
 * Format: ```sh insert_sla.sh [VM_NAME] [SLA_OPTION] [SLA_VALUE]```
 * [VM_NAME]: virtual machine name
 * [SLA_OPTION]: types of performance requirements
+    * c_usage: Total VM CPU usage limit (%)
     * b_bw: SSD I/O bandwidth (KB unit)
     * b_iops: SSD I/O io operations
     * b_lat: SSD I/O latency

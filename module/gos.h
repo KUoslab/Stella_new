@@ -51,7 +51,7 @@
 #define INC_DEC_SPEED 4
 
 enum gos_type {cpu, ssd, network};
-enum sla {b_bw, b_iops, b_lat, c_usg, n_mincredit, n_maxcredit, n_weight};
+enum sla {c_usg, b_bw, b_iops, b_lat, n_mincredit, n_maxcredit, n_weight};
 
 /*
    Structure Area

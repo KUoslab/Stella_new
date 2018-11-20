@@ -36,16 +36,7 @@ int set_vm_quota(int vm_num, long quota, enum gos_type control_type)
 
 	if (control_type == cpu) {
 		for (i = 0 ; i < VCPU_NUM ; i++)
-		{
-			if(gos_vm_list[vm_num]->vcpu[i] != NULL)
-			{
-				tg_set_cfs_quota(gos_vm_list[vm_num]->vcpu[i]->sched_task_group, quota);
-			}
-			else {
-				printk(KERN_INFO "[ERROR] VM%d's task_group[%d] == NULL\n", vm_num, i);
-				return 1;
-			}
-		}
+			tg_set_cfs_quota(gos_vm_list[vm_num]->vcpu[i]->sched_task_group, quota);
 	} else if (control_type == network)
 		tg_set_cfs_quota(gos_vm_list[vm_num]->vhost->sched_task_group, quota);
 	else if (control_type == ssd)
@@ -101,9 +92,20 @@ void feedback_controller(unsigned long elapsed_time)
 				printk("sla value : %d\n", curr_sla->sla_target.bandwidth);
 			else if (curr_sla->control_type == network)
 				printk("sla value : %d\n", curr_sla->sla_target.credit);
+			else if (curr_sla->control_type == cpu)
+				printk("sla value : %d\n", curr_sla->sla_target.cpu_usage);
 
-			if (curr_sla->control_type == cpu)
+			if (curr_sla->control_type == cpu) {
+				now_quota = (PERIOD * curr_sla->sla_target.cpu_usage) / 100;
+				if (curr_sla->now_quota != now_quota) {
+					set_vm_quota(i, now_quota, curr_sla->control_type);
+					curr_sla->now_quota = now_quota;
+					printk("gos: insert cpu quota %d\n", now_quota);
+				}
+				printk("gos: cpu now quota : %d\n", now_quota);
+				printk("--------------------------------------------\n");
 				continue;
+			}
 
 			if (curr_sla->control_type == ssd)
 				cal_io_SLA_percent(i, curr_sla);
@@ -254,6 +256,8 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 					sla_value = curr_sla->sla_target.credit;
 				else if (curr_sla->sla_type == n_weight)
 					sla_value = curr_sla->sla_target.weight;
+				else if (curr_sla->sla_type == c_usg)
+					sla_value = curr_sla->sla_target.cpu_usage;
 	
 				int_sla = curr_sla->now_sla / 100;
 				flt_sla = curr_sla->now_sla % 100;
@@ -299,6 +303,7 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 
 	while((tok = strsep(&tosep, sep)) != NULL) {
 		int err = 0;
+		int k;
 		long long tmp_l = 0;
 
 		if (i_parm == 0) {
@@ -319,6 +324,8 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 
 			if (!is_vm_exist) {
 				tmp_vm_info = kzalloc(sizeof(struct gos_vm_info), GFP_KERNEL);
+				for (k = 0; k < VCPU_NUM; k++)
+					tmp_vm_info->vcpu[k] = NULL;	
 				INIT_LIST_HEAD(&(tmp_vm_info->sla_list));
 				strcpy(tmp_vm_info->vm_name, tok);
 				printk("gos_debug: create new gos_vm_info and init sla list\n");
@@ -367,7 +374,7 @@ static ssize_t gos_write(struct file *f, const char __user *u, size_t s, loff_t 
 			i_parm++;
 		} else if (i_parm == 3) {
 			if (tmp_vm_sla->control_type == cpu) {
-				if (tmp_vm_info->vcpu)
+				if (tmp_vm_info->vcpu[0])
 					replace_sla = 1;
 				else {
 					for (index = 0; index < VCPU_NUM; index++) {
