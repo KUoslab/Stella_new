@@ -236,7 +236,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 	char *vm_name, *sla_option;
 	int i = 0;
 	
-	seq_puts(m, "VM_NAME\tSLA Option\tSLA Value\tSLA Percentage\n");
+	seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\n");
 
 	for(i = 0 ; i < VM_NUM ; i++)
 	{
