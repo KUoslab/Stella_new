@@ -517,7 +517,7 @@ static void __exit vif_exit(void)
 //	del_timer(&credit_allocator->account_timer);
 	del_timer(&credit_allocator->quota_timer);
 
-	remove_proc_entry("ancs", NULL);
+//	remove_proc_entry("ancs", NULL);
         return;
 }
 
