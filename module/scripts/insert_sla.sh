@@ -33,11 +33,7 @@ vm_path2=$(sudo ls ${vm_path} | grep ${vm})
 vm_path="${vm_path}${vm_path2}"
 
 vcpu_string=$(virsh dumpxml ${vm} | grep nova:vcpu | grep -v grep | cut -d">" -f2)
-num_vcpu=${vcpustring%<*}
-
-#vcpu_string=$(virsh dumpxml ${vm} | grep vcpu | grep -v grep)
-#num_vcpu=${vcpu_string#*>}
-#num_vcpu=${num_vcpu%<*}
+num_vcpu=${vcpu_string%<*}
 
 for i in $(seq 0 $((num_vcpu - 1)))
 do
