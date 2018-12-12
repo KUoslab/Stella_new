@@ -28,7 +28,10 @@ if [ "$2" = "n_maxcredit" ];then
 	#name_dev="null"
 fi
 
-vm_path="/sys/fs/cgroup/cpu/machine/${vm}.libvirt-qemu"
+vm_path="/sys/fs/cgroup/cpu/machine/"
+vm_path2=$(sudo ls ${vm_path} | grep ${vm})
+vm_path="${vm_path}${vm_path2}"
+
 vcpu_string=$(virsh dumpxml ${vm} | grep vcpu | grep -v grep)
 num_vcpu=${vcpu_string#*>}
 num_vcpu=${num_vcpu%<*}
