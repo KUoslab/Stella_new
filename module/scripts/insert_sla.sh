@@ -35,5 +35,4 @@ if [ "$2" = "c_usage" ];then
 else
 	cmd="$1 $2 $3 ${pid} ${name_dev}"
 fi
-echo "$vcpu"
 echo ${cmd} > /proc/gos_vm_info
