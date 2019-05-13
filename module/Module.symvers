@@ -1,0 +1,4 @@
+0x00000000	cal_io_SLA_percent	/home/minkoo/Stella_new/module/disk_stat	EXPORT_SYMBOL
+0x00000000	gos_vm_list	/home/minkoo/Stella_new/module/gos_start	EXPORT_SYMBOL
+0x00000000	gos_interval	/home/minkoo/Stella_new/module/gos_start	EXPORT_SYMBOL
+0x00000000	add_network_sla	/home/minkoo/Stella_new/module/vif	EXPORT_SYMBOL

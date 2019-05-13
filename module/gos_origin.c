@@ -235,60 +235,39 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 	int int_sla, flt_sla;
 	char *vm_name, *sla_option;
 	int i = 0;
-    long cpu_quota=0;
-
+	
+	seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\n");
 
 	for(i = 0 ; i < VM_NUM ; i++)
 	{
 		if(gos_vm_list[i] != NULL) {
-            seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\n");
 			vm_name = gos_vm_list[i]->vm_name;
+					
 			list_for_each_entry(curr_sla, &(gos_vm_list[i]->sla_list), sla_list) {
-				if (curr_sla->sla_type == b_bw){
-                    gos_vm_list[i]->now_perf.bandwidth=curr_sla->now_sla;
-                     sla_value = curr_sla->sla_target.bandwidth;
-                }
-				else if (curr_sla->sla_type == b_iops){
-                    gos_vm_list[i]->now_perf.iops=curr_sla->now_sla;
-                    sla_value = curr_sla->sla_target.iops;
-                }
-				else if (curr_sla->sla_type == b_lat){
-                    gos_vm_list[i]->now_perf.latency=curr_sla->now_sla;
-                    sla_value = curr_sla->sla_target.latency;
-                }
-				else if (curr_sla->sla_type == n_mincredit){
-                    gos_vm_list[i]->now_perf.credit=curr_sla->now_sla;
-                    sla_value = curr_sla->sla_target.credit;
-                }
-				else if (curr_sla->sla_type == n_maxcredit){
-                    gos_vm_list[i]->now_perf.credit=curr_sla->now_sla;
-                    sla_value = curr_sla->sla_target.credit;
-                }
-				else if (curr_sla->sla_type == n_weight){
-                    gos_vm_list[i]->now_perf.weight=curr_sla->sla_target.weight;
-                    sla_value = curr_sla->sla_target.weight;
-                }
-				else if (curr_sla->sla_type == c_usg){
-                    gos_vm_list[i]->now_perf.cpu_usage=curr_sla->now_sla;
-                    sla_value = curr_sla->sla_target.cpu_usage;
-                    cpu_quota = curr_sla->now_quota;
-                }
-                int_sla = curr_sla->now_sla / 100;
-                flt_sla = curr_sla->now_sla % 100;
-                sla_option = curr_sla->sla_option;
+				if (curr_sla->sla_type == b_bw)
+					sla_value = curr_sla->sla_target.bandwidth;
+				else if (curr_sla->sla_type == b_iops)
+					sla_value = curr_sla->sla_target.iops;
+				else if (curr_sla->sla_type == b_lat)
+					sla_value = curr_sla->sla_target.latency;
+				else if (curr_sla->sla_type == n_mincredit)
+					sla_value = curr_sla->sla_target.credit;
+				else if (curr_sla->sla_type == n_maxcredit)
+					sla_value = curr_sla->sla_target.credit;
+				else if (curr_sla->sla_type == n_weight)
+					sla_value = curr_sla->sla_target.weight;
+				else if (curr_sla->sla_type == c_usg)
+					sla_value = curr_sla->sla_target.cpu_usage;
+	
+				int_sla = curr_sla->now_sla / 100;
+				flt_sla = curr_sla->now_sla % 100;
+				sla_option = curr_sla->sla_option;
 
-                seq_printf(m, "%-8s%-16s%-16d%d.%d\n", vm_name, sla_option,
-                sla_value, int_sla, flt_sla);
-            }
-            seq_puts(m, "\nVM_NAME\tBANDWIDTH\tLATENCY\tIOPS\tPPS\tCPU_USAGE\tCPU_QUOTA\n");
-            seq_printf(m, "%-8s%-16ld%-8ld%-8ld%-8ld%-16ld%-16d\n\n\n", 
-                vm_name,
-                gos_vm_list[i]->now_perf.bandwidth,
-                gos_vm_list[i]->now_perf.latency,
-                gos_vm_list[i]->now_perf.iops,
-                gos_vm_list[i]->now_perf.credit,
-                gos_vm_list[i]->now_perf.cpu_usage,
-                cpu_quota);
+				seq_printf(m, "%s\t%s\t%d\t%d.%d\n", vm_name, sla_option, 
+					sla_value, int_sla, flt_sla);
+
+
+			}
 		}
 	}
 	return 0;

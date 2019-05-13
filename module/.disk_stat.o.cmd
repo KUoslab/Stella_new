@@ -1,8 +1,8 @@
-cmd_/home/minkoo/Stella_new/module/gos_start.o := gcc -Wp,-MD,/home/minkoo/Stella_new/module/.gos_start.o.d  -nostdinc -isystem /usr/lib/gcc/x86_64-linux-gnu/5/include -I./arch/x86/include -Iarch/x86/include/generated/uapi -Iarch/x86/include/generated  -Iinclude -I./arch/x86/include/uapi -Iarch/x86/include/generated/uapi -I./include/uapi -Iinclude/generated/uapi -include ./include/linux/kconfig.h -D__KERNEL__ -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -mno-sse -mno-mmx -mno-sse2 -mno-3dnow -mno-avx -m64 -falign-jumps=1 -falign-loops=1 -mno-80387 -mno-fp-ret-in-387 -mpreferred-stack-boundary=3 -mskip-rax-setup -mtune=generic -mno-red-zone -mcmodel=kernel -funit-at-a-time -maccumulate-outgoing-args -DCONFIG_X86_X32_ABI -DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1 -DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_SSSE3=1 -DCONFIG_AS_CRC32=1 -DCONFIG_AS_AVX=1 -DCONFIG_AS_AVX2=1 -DCONFIG_AS_SHA1_NI=1 -DCONFIG_AS_SHA256_NI=1 -pipe -Wno-sign-compare -fno-asynchronous-unwind-tables -fno-delete-null-pointer-checks -O2 --param=allow-store-data-races=0 -Wframe-larger-than=1024 -fstack-protector-strong -Wno-unused-but-set-variable -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-var-tracking-assignments -g -gdwarf-4 -pg -mfentry -DCC_USING_FENTRY -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes -Werror=date-time -DCC_HAVE_ASM_GOTO  -DMODULE  -D"KBUILD_STR(s)=\#s" -D"KBUILD_BASENAME=KBUILD_STR(gos_start)"  -D"KBUILD_MODNAME=KBUILD_STR(gos_start)" -c -o /home/minkoo/Stella_new/module/gos_start.o /home/minkoo/Stella_new/module/gos_start.c
+cmd_/home/minkoo/Stella_new/module/disk_stat.o := gcc -Wp,-MD,/home/minkoo/Stella_new/module/.disk_stat.o.d  -nostdinc -isystem /usr/lib/gcc/x86_64-linux-gnu/5/include -I./arch/x86/include -Iarch/x86/include/generated/uapi -Iarch/x86/include/generated  -Iinclude -I./arch/x86/include/uapi -Iarch/x86/include/generated/uapi -I./include/uapi -Iinclude/generated/uapi -include ./include/linux/kconfig.h -D__KERNEL__ -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -mno-sse -mno-mmx -mno-sse2 -mno-3dnow -mno-avx -m64 -falign-jumps=1 -falign-loops=1 -mno-80387 -mno-fp-ret-in-387 -mpreferred-stack-boundary=3 -mskip-rax-setup -mtune=generic -mno-red-zone -mcmodel=kernel -funit-at-a-time -maccumulate-outgoing-args -DCONFIG_X86_X32_ABI -DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1 -DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_SSSE3=1 -DCONFIG_AS_CRC32=1 -DCONFIG_AS_AVX=1 -DCONFIG_AS_AVX2=1 -DCONFIG_AS_SHA1_NI=1 -DCONFIG_AS_SHA256_NI=1 -pipe -Wno-sign-compare -fno-asynchronous-unwind-tables -fno-delete-null-pointer-checks -O2 --param=allow-store-data-races=0 -Wframe-larger-than=1024 -fstack-protector-strong -Wno-unused-but-set-variable -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-var-tracking-assignments -g -gdwarf-4 -pg -mfentry -DCC_USING_FENTRY -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes -Werror=date-time -DCC_HAVE_ASM_GOTO  -DMODULE  -D"KBUILD_STR(s)=\#s" -D"KBUILD_BASENAME=KBUILD_STR(disk_stat)"  -D"KBUILD_MODNAME=KBUILD_STR(disk_stat)" -c -o /home/minkoo/Stella_new/module/disk_stat.o /home/minkoo/Stella_new/module/disk_stat.c
 
-source_/home/minkoo/Stella_new/module/gos_start.o := /home/minkoo/Stella_new/module/gos_start.c
+source_/home/minkoo/Stella_new/module/disk_stat.o := /home/minkoo/Stella_new/module/disk_stat.c
 
-deps_/home/minkoo/Stella_new/module/gos_start.o := \
+deps_/home/minkoo/Stella_new/module/disk_stat.o := \
   /home/minkoo/Stella_new/module/gos.h \
   include/linux/module.h \
     $(wildcard include/config/modules.h) \
@@ -787,7 +787,45 @@ deps_/home/minkoo/Stella_new/module/gos_start.o := \
     $(wildcard include/config/generic/clockevents/broadcast.h) \
   include/linux/clockchips.h \
     $(wildcard include/config/arch/has/tick/broadcast.h) \
-  include/linux/proc_fs.h \
+  include/linux/genhd.h \
+    $(wildcard include/config/fail/make/request.h) \
+    $(wildcard include/config/blk/dev/integrity.h) \
+    $(wildcard include/config/solaris/x86/partition.h) \
+    $(wildcard include/config/bsd/disklabel.h) \
+    $(wildcard include/config/unixware/disklabel.h) \
+    $(wildcard include/config/minix/subpartition.h) \
+  include/linux/kdev_t.h \
+  include/uapi/linux/kdev_t.h \
+  include/linux/slab.h \
+    $(wildcard include/config/debug/slab.h) \
+    $(wildcard include/config/failslab.h) \
+    $(wildcard include/config/slab.h) \
+    $(wildcard include/config/slub.h) \
+    $(wildcard include/config/slob.h) \
+  include/linux/kmemleak.h \
+    $(wildcard include/config/debug/kmemleak.h) \
+  include/linux/kasan.h \
+  include/uapi/linux/major.h \
+  include/linux/device.h \
+    $(wildcard include/config/debug/devres.h) \
+    $(wildcard include/config/generic/msi/irq/domain.h) \
+    $(wildcard include/config/pinctrl.h) \
+    $(wildcard include/config/generic/msi/irq.h) \
+    $(wildcard include/config/dma/cma.h) \
+    $(wildcard include/config/of.h) \
+    $(wildcard include/config/devtmpfs.h) \
+    $(wildcard include/config/sysfs/deprecated.h) \
+  include/linux/klist.h \
+  include/linux/pinctrl/devinfo.h \
+  include/linux/pinctrl/consumer.h \
+  include/linux/seq_file.h \
+  include/linux/pinctrl/pinctrl-state.h \
+  include/linux/ratelimit.h \
+  arch/x86/include/asm/device.h \
+    $(wildcard include/config/x86/dev/dma/ops.h) \
+    $(wildcard include/config/intel/iommu.h) \
+    $(wildcard include/config/amd/iommu.h) \
+  include/linux/pm_wakeup.h \
   include/linux/fs.h \
     $(wildcard include/config/fs/posix/acl.h) \
     $(wildcard include/config/cgroup/writeback.h) \
@@ -797,8 +835,6 @@ deps_/home/minkoo/Stella_new/module/gos_start.o := \
     $(wildcard include/config/quota.h) \
     $(wildcard include/config/fs/dax.h) \
     $(wildcard include/config/migration.h) \
-  include/linux/kdev_t.h \
-  include/uapi/linux/kdev_t.h \
   include/linux/dcache.h \
   include/linux/rculist_bl.h \
   include/linux/list_bl.h \
@@ -813,7 +849,6 @@ deps_/home/minkoo/Stella_new/module/gos_start.o := \
   include/uapi/linux/fiemap.h \
   include/linux/migrate_mode.h \
   include/linux/blk_types.h \
-    $(wildcard include/config/blk/dev/integrity.h) \
   include/uapi/linux/fs.h \
   include/linux/quota.h \
     $(wildcard include/config/quota/netlink/interface.h) \
@@ -828,45 +863,9 @@ deps_/home/minkoo/Stella_new/module/gos_start.o := \
   include/uapi/linux/fcntl.h \
   arch/x86/include/uapi/asm/fcntl.h \
   include/uapi/asm-generic/fcntl.h \
-  include/linux/seq_file.h \
-  include/linux/slab.h \
-    $(wildcard include/config/debug/slab.h) \
-    $(wildcard include/config/failslab.h) \
-    $(wildcard include/config/slab.h) \
-    $(wildcard include/config/slub.h) \
-    $(wildcard include/config/slob.h) \
-  include/linux/kmemleak.h \
-    $(wildcard include/config/debug/kmemleak.h) \
-  include/linux/kasan.h \
-  include/linux/genhd.h \
-    $(wildcard include/config/fail/make/request.h) \
-    $(wildcard include/config/solaris/x86/partition.h) \
-    $(wildcard include/config/bsd/disklabel.h) \
-    $(wildcard include/config/unixware/disklabel.h) \
-    $(wildcard include/config/minix/subpartition.h) \
-  include/uapi/linux/major.h \
-  include/linux/device.h \
-    $(wildcard include/config/debug/devres.h) \
-    $(wildcard include/config/generic/msi/irq/domain.h) \
-    $(wildcard include/config/pinctrl.h) \
-    $(wildcard include/config/generic/msi/irq.h) \
-    $(wildcard include/config/dma/cma.h) \
-    $(wildcard include/config/of.h) \
-    $(wildcard include/config/devtmpfs.h) \
-    $(wildcard include/config/sysfs/deprecated.h) \
-  include/linux/klist.h \
-  include/linux/pinctrl/devinfo.h \
-  include/linux/pinctrl/consumer.h \
-  include/linux/pinctrl/pinctrl-state.h \
-  include/linux/ratelimit.h \
-  arch/x86/include/asm/device.h \
-    $(wildcard include/config/x86/dev/dma/ops.h) \
-    $(wildcard include/config/intel/iommu.h) \
-    $(wildcard include/config/amd/iommu.h) \
-  include/linux/pm_wakeup.h \
   include/linux/ctype.h \
   include/linux/mount.h \
 
-/home/minkoo/Stella_new/module/gos_start.o: $(deps_/home/minkoo/Stella_new/module/gos_start.o)
+/home/minkoo/Stella_new/module/disk_stat.o: $(deps_/home/minkoo/Stella_new/module/disk_stat.o)
 
-$(deps_/home/minkoo/Stella_new/module/gos_start.o):
+$(deps_/home/minkoo/Stella_new/module/disk_stat.o):

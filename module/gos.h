@@ -40,7 +40,7 @@
    Define Area
 */
 
-#define VCPU_NUM 4
+#define VCPU_NUM 2
 #define VM_NUM 10 
 #define SYS_CPU_UTIL_THRESHOLD 8500 /* 8500 = 85.00% */
 #define WORK_CONSERVING -1

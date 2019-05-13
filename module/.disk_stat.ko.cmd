@@ -1,0 +1,1 @@
+cmd_/home/minkoo/Stella_new/module/disk_stat.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/minkoo/Stella_new/module/disk_stat.ko /home/minkoo/Stella_new/module/disk_stat.o /home/minkoo/Stella_new/module/disk_stat.mod.o
