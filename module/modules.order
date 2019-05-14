@@ -1,4 +1,0 @@
-kernel//home/minkoo/Stella_new/module/gos_start.ko
-kernel//home/minkoo/Stella_new/module/gos.ko
-kernel//home/minkoo/Stella_new/module/disk_stat.ko
-kernel//home/minkoo/Stella_new/module/vif.ko

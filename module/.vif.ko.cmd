@@ -1,1 +1,0 @@
-cmd_/home/minkoo/Stella_new/module/vif.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/minkoo/Stella_new/module/vif.ko /home/minkoo/Stella_new/module/vif.o /home/minkoo/Stella_new/module/vif.mod.o
