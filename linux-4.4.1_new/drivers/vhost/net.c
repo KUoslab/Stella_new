@@ -367,20 +367,21 @@ static void handle_tx(struct vhost_net *net)
 		len = iov_length(vq->iov, out);
 #ifdef ANCS
 		ancs_head=&vnet->active_list;
-		if(ancs_head!=ancs_head->prev){ 
-			if(len > vnet->remaining_credit){
-				//printk("kwlee: len = %d, remaining credit = %d\n", len, vnet->remaining_credit);
-				vnet->need_reschedule=true;
-				vhost_discard_vq_desc(vq, 1);
-				if (unlikely(vhost_enable_notify(&net->dev, vq))){ 
-					vhost_disable_notify(&net->dev, vq);
-					continue;
-					}
-				break;
-				}
-			vnet->remaining_credit-=len;
-			vnet->used_credit+=len;
-			}
+                if(ancs_head!=ancs_head->prev){
+                        /*if(len > vnet->remaining_credit){
+                                printk("ancs: len = %d, remaining credit = %d\n", len, vnet->remaining_credit);
+                                vnet->need_reschedule=true;
+                                vhost_discard_vq_desc(vq, 1);
+                                if (unlikely(vhost_enable_notify(&net->dev, vq))){ 
+                                        vhost_disable_notify(&net->dev, vq);
+                                        continue;
+                                }
+                                break;
+                        }
+                        vnet->remaining_credit-=len;
+                        vnet->used_credit+=len;*/
+                        vnet->pps++;
+                }
 #endif
 		iov_iter_init(&msg.msg_iter, WRITE, vq->iov, out, len);
 		iov_iter_advance(&msg.msg_iter, hdr_size);
@@ -1105,8 +1106,8 @@ static long vhost_net_set_owner(struct vhost_net *n)
 		vhost_net_clear_ubuf_info(n);
 	vhost_net_flush(n);
 #ifdef ANCS
-	n->vnet->vhost=current;
-
+	n->vnet->vhost = n->dev.worker;
+	n->vnet->parent = current;
 #endif
 out:
 	mutex_unlock(&n->dev.mutex);

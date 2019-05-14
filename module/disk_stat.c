@@ -50,14 +50,20 @@ static struct hd_struct *gos_hd_struct = NULL;
 static struct gendisk *gos_gendisk = NULL;
 dev_t gos_dev_t = -1;
 
-void cal_io_SLA_percent(int vm_num)
+void cal_io_SLA_percent(int vm_num, struct gos_vm_sla *curr_sla)
 {
 	unsigned long sector_size = 512; // temp_wj
 //	struct vm_perf_wj now_io_stat; // 10000 is 100.00
 	struct disk_stat now_disk_stat;
 	unsigned long ios = 0, sectors = 0, ticks = 0, wait = 0;
 
-	if(gos_vm_list[vm_num] == NULL) return;
+	if (gos_vm_list[vm_num] == NULL) 
+		return;
+
+	if (strncmp(gos_vm_list[vm_num]->dev_name, "null", 4) == 0) {
+		printk("disk stat: null device error\n");
+		return;
+	}		
 
 	get_disk_stat(gos_vm_list[vm_num]->dev_name, &now_disk_stat); // now_disk_stat update
 #ifdef DEBUG
@@ -84,33 +90,33 @@ void cal_io_SLA_percent(int vm_num)
 //	if (sectors != 0)// && ticks != 0)
 	gos_vm_list[vm_num]->now_perf.bandwidth = (sectors * sector_size * 100) / (3 * 1024);//(sectors * sector_size * 100) / (ticks*10); // MB/s * 100
 //	if (wait != 0 && ios != 0)
-	gos_vm_list[vm_num]->now_perf.latency = (ios <= 0)?0:wait * 100 / ios;//100 * wait / ios; // ms * 100
+	gos_vm_list[vm_num]->now_perf.latency = (ios <= 0) ? 0 : wait * 100 / ios;//100 * wait / ios; // ms * 100
 
-	if (gos_vm_list[vm_num]->sla_type == b_iops){
+	if (curr_sla->sla_type == b_iops) {
 		//if (ios != 0 && ticks != 0){
 		//	now_io_stat.iops = 100 * ios * 1000 / ticks; // req/s * 100
-		gos_vm_list[vm_num]->prev_SLA = gos_vm_list[vm_num]->now_SLA;
-		gos_vm_list[vm_num]->now_SLA = gos_vm_list[vm_num]->now_perf.iops * 100 / gos_vm_list[vm_num]->sla_target.iops; // % * 100
+		curr_sla->prev_sla = curr_sla->now_sla;
+		curr_sla->now_sla = gos_vm_list[vm_num]->now_perf.iops * 100 / curr_sla->sla_target.iops; // % * 100
 #ifdef DEBUG
 		printk(KERN_INFO "     IOPS : %lu(req/s * 100)\n", gos_vm_list[vm_num]->now_perf.iops);
 #endif
 		//}
 	}
-	else if (gos_vm_list[vm_num]->sla_type == b_bw){
+	else if (curr_sla->sla_type == b_bw) {
 		//if (sectors != 0 && ticks != 0){
 		//	now_io_stat.bandwidth = (sectors * sector_size) / (ticks*10); // MB/s * 100
-		gos_vm_list[vm_num]->prev_SLA = gos_vm_list[vm_num]->now_SLA;
-		gos_vm_list[vm_num]->now_SLA = gos_vm_list[vm_num]->now_perf.bandwidth * 100 / gos_vm_list[vm_num]->sla_target.bandwidth;// % * 100
+		curr_sla->prev_sla = curr_sla->now_sla;
+		curr_sla->now_sla = gos_vm_list[vm_num]->now_perf.bandwidth * 100 / curr_sla->sla_target.bandwidth;// % * 100
 #ifdef DEBUG
 		printk(KERN_INFO "Bandwidth : %lu(MB/s * 100)\n", gos_vm_list[vm_num]->now_perf.bandwidth);
 #endif
 		//}
 	}
-	else if (gos_vm_list[vm_num]->sla_type == b_lat){
+	else if (curr_sla->sla_type == b_lat) {
 		//if (wait != 0 && ios != 0){
 		//	now_io_stat.bandwidth = 100 * wait / ios; // ms * 100
-		gos_vm_list[vm_num]->prev_SLA = gos_vm_list[vm_num]->now_SLA;
-		gos_vm_list[vm_num]->now_SLA = gos_vm_list[vm_num]->now_perf.latency * 100 / gos_vm_list[vm_num]->sla_target.latency; // % * 100
+		curr_sla->prev_sla = curr_sla->now_sla;
+		curr_sla->now_sla = gos_vm_list[vm_num]->now_perf.latency * 100 / curr_sla->sla_target.latency; // % * 100
 #ifdef DEBUG
 		printk(KERN_INFO "  Latency : %lu(ms * 100)\n", gos_vm_list[vm_num]->now_perf.latency);
 #endif
@@ -214,6 +220,6 @@ module_init(simple_init);
 module_exit(simple_exit);
 
 MODULE_AUTHOR("wjlee");
-MODULE_DESCRIPTION("HELLO");
+MODULE_DESCRIPTION("Disk stat monitoring module");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("NEW");
