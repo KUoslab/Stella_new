@@ -23,6 +23,7 @@ static unsigned long prev_jiffies = 0;
 u64 prev_total_time, prev_used_time;
 
 unsigned long vm_cpu_util_out[VM_NUM];
+long now_quota_out[VM_NUM];
 
 /*
    Start of the feedback controller code
@@ -185,8 +186,9 @@ void feedback_controller(unsigned long elapsed_time)
 			curr_sla->now_quota = now_quota;
 			printk("gos: after now_quota: %ld, prev_quota: %ld\n", now_quota, tmp_quota);
 			printk("--------------------------------------------\n");
-	
+
 		}
+		now_quota_out[i] = now_quota;
 	}
 }
 
@@ -284,7 +286,8 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 			_bandwidth = gos_vm_list[i]->now_perf.bandwidth;
 			_latency = gos_vm_list[i]->now_perf.latency;
 			_cpu_usage = gos_vm_list[i]->now_perf.cpu_usage;
-			_cpu_quota = curr_sla->now_quota;
+			// _cpu_quota = curr_sla->now_quota;
+			_cpu_quota = now_quota_out[i];
 
 			seq_puts(m, "\nVM_NAME\tIOPS\tPPS\tbandwidth\tlatency\tCPU_usage\tCPU_quota\n");
             seq_printf(m, "%s\t%lu\t%lu\t%lu\t\t%lu\t%lu\t\t%ld\n\n", vm_name, _iops, _credit, _bandwidth, _latency, _cpu_usage, _cpu_quota);
