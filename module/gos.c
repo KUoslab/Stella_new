@@ -241,7 +241,7 @@ static inline int exit_gos_timer(void)
 /* TODO we should change sla values (gos_vm_list[i]->XXX) to gos_vm_sla->XXX */
 static int gos_vm_info_show(struct seq_file *m, void *v)
 {
-  int before_sla, flt_sla;
+  int before_sla, after_sla;
 	struct gos_vm_sla *curr_sla;
 	int sla_value;
 	char *vm_name, *sla_option;
@@ -274,7 +274,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 
 					/*  Collect of performance statistic and CPU quota  */
 				before_sla = curr_sla->now_sla / 100;
-				flt_sla = curr_sla->now_sla % 100
+				after_sla = curr_sla->now_sla % 100
 
 				sla_option = curr_sla->sla_option;
         cpu_quota = curr_sla->now_quota;
