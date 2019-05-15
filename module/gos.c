@@ -235,8 +235,10 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 	int int_sla, flt_sla;
 	char *vm_name, *sla_option;
 	int i = 0;
-	
-	seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\n");
+	long pre_quota, now_quota ;
+	unsigned long iops, pps, bandwidth, latency, cpu_usage ;
+
+	seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\tPrevious Quota\tNow Quota\tIOPS\tPPS\tBandwidth\tLatency\tCPU usage\n");
 
 	for(i = 0 ; i < VM_NUM ; i++)
 	{
@@ -244,6 +246,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 			vm_name = gos_vm_list[i]->vm_name;
 					
 			list_for_each_entry(curr_sla, &(gos_vm_list[i]->sla_list), sla_list) {
+
 				if (curr_sla->sla_type == b_bw)
 					sla_value = curr_sla->sla_target.bandwidth;
 				else if (curr_sla->sla_type == b_iops)
@@ -263,9 +266,18 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 				flt_sla = curr_sla->now_sla % 100;
 				sla_option = curr_sla->sla_option;
 
-				seq_printf(m, "%s\t%s\t%d\t%d.%d\n", vm_name, sla_option, 
-					sla_value, int_sla, flt_sla);
+				pre_quota = curr_sla->prev_quota ;
+				now_quota = curr_sla->now_quota ;
+				iops = gos_vm_list[i]->now_perf.iops ;
+				pps = gos_vm_list[i]->now_perf.credit;
+				bandwidth = gos_vm_list[i]->now_perf.bandwidth;
+				latency = gos_vm_list[i]->now_perf.latency;
+				cpu_usage = gos_vm_list[i]->now_perf.cpu_usage;
 
+
+				seq_printf(m, "%s\t%s\t%d\t%d.%d\t%d\t%d\t%lu\t%lu\t%lu\t%lu\t%lu.%lu\n",
+					   vm_name, sla_option, sla_value, int_sla, flt_sla, pre_quota, now_quota, 
+					   iops, pps, bandwidth, latency, cpu_usage/100, cpu_usage%100);
 
 			}
 		}
