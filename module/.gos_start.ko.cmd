@@ -1,0 +1,1 @@
+cmd_/home/mlec/Stella_new/module/gos_start.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/mlec/Stella_new/module/gos_start.ko /home/mlec/Stella_new/module/gos_start.o /home/mlec/Stella_new/module/gos_start.mod.o
