@@ -235,8 +235,10 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 	int int_sla, flt_sla;
 	char *vm_name, *sla_option;
 	int i = 0;
-	
-	seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\n");
+
+	unsigned long slo_iops, slo_pps, slo_bandwidth, slo_latency, slo_cpu_usage;	
+	long cpu_quota;
+	seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\tSLO IOPS\tSLO PPS\tSLO Bandwidth\tSLO latency\tSLO CPU Usage\tCPU Quota\n");
 
 	for(i = 0 ; i < VM_NUM ; i++)
 	{
@@ -263,8 +265,15 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 				flt_sla = curr_sla->now_sla % 100;
 				sla_option = curr_sla->sla_option;
 
-				seq_printf(m, "%s\t%s\t%d\t%d.%d\n", vm_name, sla_option, 
-					sla_value, int_sla, flt_sla);
+				slo_iops = gos_vm_list[i]->now_perf.iops;
+				slo_pps = gos_vm_list[i]->now_perf.credit;
+				slo_bandwidth = gos_vm_list[i]->now_perf.bandwidth;
+				slo_latency = gos_vm_list[i]->now_perf.latency;
+				slo_cpu_usage = gos_vm_list[i]->now_perf.cpu_usage;
+				cpu_quota = curr_sla->now_quota;
+
+				seq_printf(m, "%s\t%s\t%d\t%d.%d\t%ld\t%ld\t%ld\t%ld\t%ld\t%lu\n", vm_name, sla_option, 
+					sla_value, int_sla, flt_sla, slo_iops, slo_pps, slo_bandwidth, slo_latency, slo_cpu_usage, cpu_quota);
 
 
 			}

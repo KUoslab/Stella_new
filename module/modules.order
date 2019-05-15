@@ -1,0 +1,4 @@
+kernel//home/hsjin/os_grad/Stella_new/module/gos_start.ko
+kernel//home/hsjin/os_grad/Stella_new/module/gos.ko
+kernel//home/hsjin/os_grad/Stella_new/module/disk_stat.ko
+kernel//home/hsjin/os_grad/Stella_new/module/vif.ko
