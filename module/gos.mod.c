@@ -20,4 +20,4 @@ __attribute__((section(".modinfo"))) =
 "depends=disk_stat,gos_start,vif";
 
 
-MODULE_INFO(srcversion, "DEEC0C0C4AEE1FA66843F53");
+MODULE_INFO(srcversion, "5A7A9BFCAEF387631491DBC");
