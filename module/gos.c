@@ -267,7 +267,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 				sla_option = curr_sla->sla_option;
 
 				//Fetching the additional slo types
-				cpu_quota = curr_sla->cpu_quota;
+				cpu_quota = curr_sla->now_quota;
 				iops = gos_vm_list[i]->now_perf.iops;
 				bandwidth = gos_vm_list[i]->now_perf.bandwidth;
 				latency = gos_vm_list[i]->now_perf.latency;
