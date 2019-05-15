@@ -228,7 +228,7 @@ static inline int exit_gos_timer(void)
 }
 
 /* TODO we should change sla values (gos_vm_list[i]->XXX) to gos_vm_sla->XXX */
-OBstatic int gos_vm_info_show(struct seq_file *m, void *v)
+static int gos_vm_info_show(struct seq_file *m, void *v)
 {
 	struct gos_vm_sla *curr_sla;
 	int sla_value;
