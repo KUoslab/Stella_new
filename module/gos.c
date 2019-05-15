@@ -95,18 +95,6 @@ void feedback_controller(unsigned long elapsed_time)
 			else if (curr_sla->control_type == cpu)
 				printk("sla value : %d\n", curr_sla->sla_target.cpu_usage);
 
-			if (curr_sla->control_type == cpu) {
-				now_quota = (PERIOD * curr_sla->sla_target.cpu_usage) / 100;
-				if (curr_sla->now_quota != now_quota) {
-					set_vm_quota(i, now_quota, curr_sla->control_type);
-					curr_sla->now_quota = now_quota;
-					printk("gos: insert cpu quota %d\n", now_quota);
-				}
-				printk("gos: cpu now quota : %d\n", now_quota);
-				printk("--------------------------------------------\n");
-				continue;
-			}
-
 			if (curr_sla->control_type == ssd)
 				cal_io_SLA_percent(i, curr_sla);
 
@@ -123,6 +111,21 @@ void feedback_controller(unsigned long elapsed_time)
 			/* 100.00% = 10000, gos_interval is 3s*/
 			vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
 			gos_vm_list[i]->now_perf.cpu_usage = vm_cpu_util;
+
+
+			if (curr_sla->control_type == cpu) {
+				now_quota = (PERIOD * curr_sla->sla_target.cpu_usage) / 100;
+				if (curr_sla->now_quota != now_quota) {
+					set_vm_quota(i, now_quota, curr_sla->control_type);
+					curr_sla->now_quota = now_quota;
+					printk("gos: insert cpu quota %d\n", now_quota);
+				}
+				curr_sla->now_sla = (vm_cpu_util * 100) / curr_sla->sla_target.cpu_usage;
+				printk("gos: cpu now quota : %d\n", now_quota);
+				printk("--------------------------------------------\n");
+				continue;
+			}
+
 
 			printk("gos: before now_sla: %lu, prev_sla: %lu\n", now_sla, prev_sla);
 			printk("gos: before now_quota: %ld, prev_quota: %ld\n", now_quota, prev_quota);
@@ -273,7 +276,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 				pps = gos_vm_list[i]->now_perf.credit;
 				cpu_util = gos_vm_list[i]->now_perf.cpu_usage;
 
-				seq_printf(m, "%s\t%s\t%d\t%d.%d\t%d\t%lu\t%lu\t%lu\t%lu\t%lu.%lu\n", vm_name, sla_option,
+				seq_printf(m, "%s\t%s\t\t%d\t\t%d.%d\t\t%d\t\t%lu\t\t%lu\t\t%lu\t\t%lu\t%lu.%lu\n", vm_name, sla_option,
 					sla_value, int_sla, flt_sla, cpu_quota, iops, bandwidth, latency, pps, cpu_util / 100, cpu_util % 100);
 
 
