@@ -258,6 +258,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 	long _cpu_quota=0;
 	int i = 0;
 <<<<<<< HEAD
+<<<<<<< HEAD
         long cpu_quota;
 	unsigned long iops, bandwidth, latency, pps;
 	
@@ -277,6 +278,12 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 	long cpu_quota;
 	seq_puts(m, "VM_NAME\t\tSLO Option\tSLO Value\tSLO Percentage\tSLO IOPS\tSLO PPS\t\tSLO Bandwidth\tSLO latency\tSLO CPU Usage\tCPU Quota\n");
 >>>>>>> c4fca867ea796663c5d23f04449deaa22d0d7bee
+=======
+	long pre_quota, now_quota ;
+	unsigned long iops, pps, bandwidth, latency, cpu_usage ;
+
+	seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\tPrevious Quota\tNow Quota\tIOPS\tPPS\tBandwidth\tLatency\tCPU usage\n");
+>>>>>>> f0d07b1adf2e39ea00637ea22d3a1db7843570c7
 
 	for(i = 0 ; i < VM_NUM ; i++)
 	{
@@ -284,6 +291,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 			vm_name = gos_vm_list[i]->vm_name;
 
 			list_for_each_entry(curr_sla, &(gos_vm_list[i]->sla_list), sla_list) {
+
 				if (curr_sla->sla_type == b_bw)
 					sla_value = curr_sla->sla_target.bandwidth;
 				else if (curr_sla->sla_type == b_iops)
@@ -329,6 +337,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 
 >>>>>>> c4fca867ea796663c5d23f04449deaa22d0d7bee
 
+<<<<<<< HEAD
 				sla_option = curr_sla->sla_option;
         cpu_quota = curr_sla->now_quota;
         cpu_usage = gos_vm_list[i]->now_perf.cpu_usage;
@@ -341,6 +350,21 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
         seq_printf(m, "%s\t%s\t%d\t%d.%d\t%d\t%lu\t%lu\t%lu\t%lu\t%lu.%lu\n", vm_name, sla_option,
           sla_value, before_sla, after_sla, cpu_quota, b_iops, b_pps, b_bandwidth, b_latency, cpu_usage / 100, cpu_usage % 100);
 >>>>>>> 1cb5d62b1fe80fe5f57e398f0f952dadfcdde73e
+=======
+				pre_quota = curr_sla->prev_quota ;
+				now_quota = curr_sla->now_quota ;
+				iops = gos_vm_list[i]->now_perf.iops ;
+				pps = gos_vm_list[i]->now_perf.credit;
+				bandwidth = gos_vm_list[i]->now_perf.bandwidth;
+				latency = gos_vm_list[i]->now_perf.latency;
+				cpu_usage = gos_vm_list[i]->now_perf.cpu_usage;
+
+
+				seq_printf(m, "%s\t%s\t%d\t%d.%d\t%d\t%d\t%lu\t%lu\t%lu\t%lu\t%lu.%lu\n",
+					   vm_name, sla_option, sla_value, int_sla, flt_sla, pre_quota, now_quota, 
+					   iops, pps, bandwidth, latency, cpu_usage/100, cpu_usage%100);
+
+>>>>>>> f0d07b1adf2e39ea00637ea22d3a1db7843570c7
 			}
 
 <<<<<<< HEAD
