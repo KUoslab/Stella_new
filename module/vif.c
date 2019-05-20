@@ -170,6 +170,7 @@ static void quota_control(unsigned long data)
 				    gos_vif->vhost->pid == temp_vif->vhost->pid) {
 					curr_sla->prev_sla = curr_sla->now_sla;
 					curr_sla->now_sla = perf * 10000 / goal;
+					gos_vm_list[i]->now_perf.credit = perf;						////
 					break;
 				}
 			}

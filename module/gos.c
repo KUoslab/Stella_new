@@ -22,6 +22,9 @@ static const struct file_operations gos_vm_info;
 static unsigned long prev_jiffies = 0;
 u64 prev_total_time, prev_used_time;
 
+unsigned long vm_cpu_util_out[VM_NUM];
+long now_quota_out[VM_NUM];
+
 /*
    Start of the feedback controller code
 */
@@ -123,6 +126,9 @@ void feedback_controller(unsigned long elapsed_time)
 			/* 100.00% = 10000, gos_interval is 3s*/
 			vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
 
+			if(vm_cpu_util!=0){
+				vm_cpu_util_out[i]=vm_cpu_util;
+			}
 			printk("gos: before now_sla: %lu, prev_sla: %lu\n", now_sla, prev_sla);
 			printk("gos: before now_quota: %ld, prev_quota: %ld\n", now_quota, prev_quota);
 			printk("gos: vm cpu util = %lu.%lu\n", vm_cpu_util / 100, vm_cpu_util % 100);
@@ -180,8 +186,9 @@ void feedback_controller(unsigned long elapsed_time)
 			curr_sla->now_quota = now_quota;
 			printk("gos: after now_quota: %ld, prev_quota: %ld\n", now_quota, tmp_quota);
 			printk("--------------------------------------------\n");
-	
+
 		}
+		now_quota_out[i] = now_quota;
 	}
 }
 
@@ -233,7 +240,10 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 	struct gos_vm_sla *curr_sla;
 	int sla_value;
 	int int_sla, flt_sla;
+	unsigned long _iops, _credit, _bandwidth, _latency, _cpu_usage;
+	_iops=0, _credit=0, _bandwidth=0, _latency=0, _cpu_usage=0;
 	char *vm_name, *sla_option;
+	long _cpu_quota=0;
 	int i = 0;
         long cpu_quota;
 	unsigned long iops, bandwidth, latency, pps;
@@ -255,17 +265,26 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 					sla_value = curr_sla->sla_target.latency;
 				else if (curr_sla->sla_type == n_mincredit)
 					sla_value = curr_sla->sla_target.credit;
-				else if (curr_sla->sla_type == n_maxcredit)
+				else if (curr_sla->sla_type == n_maxcredit){
 					sla_value = curr_sla->sla_target.credit;
+				}
 				else if (curr_sla->sla_type == n_weight)
 					sla_value = curr_sla->sla_target.weight;
 				else if (curr_sla->sla_type == c_usg)
 					sla_value = curr_sla->sla_target.cpu_usage;
 	
+				gos_vm_list[i]->now_perf.cpu_usage = vm_cpu_util_out[i];
+				
+				
 				int_sla = curr_sla->now_sla / 100;
 				flt_sla = curr_sla->now_sla % 100;
 				sla_option = curr_sla->sla_option;
+				
+				// seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\n");
+				seq_printf(m, "%s\t%s\t%d\t%d.%d\n", vm_name, sla_option, sla_value, int_sla, flt_sla);
+			}
 
+<<<<<<< HEAD
 				//Fetching the additional slo types
 				cpu_quota = curr_sla->now_quota;
 				iops = gos_vm_list[i]->now_perf.iops;
@@ -275,8 +294,18 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
                                 //Adding the additional SLO types to be printed
 				seq_printf(m, "%s\t%s\t%d\t%d.%d\t%d\t%lu\t%lu\t%lu\t%lu\n", vm_name, sla_option,
 					sla_value, int_sla, flt_sla, cpu_quota, iops, bandwidth, latency, pps);
+=======
+			_iops = gos_vm_list[i]->now_perf.iops;
+			_credit = gos_vm_list[i]->now_perf.credit;
+			_bandwidth = gos_vm_list[i]->now_perf.bandwidth;
+			_latency = gos_vm_list[i]->now_perf.latency;
+			_cpu_usage = gos_vm_list[i]->now_perf.cpu_usage;
+			// _cpu_quota = curr_sla->now_quota;
+			_cpu_quota = now_quota_out[i];
+>>>>>>> 4955a39570570feb6f1f5ec46642a89702d47cd7
 
-			}
+			seq_puts(m, "\nVM_NAME\tIOPS\tPPS\tbandwidth\tlatency\tCPU_usage\tCPU_quota\n");
+            seq_printf(m, "%s\t%lu\t%lu\t%lu\t\t%lu\t%lu\t\t%ld\n\n", vm_name, _iops, _credit, _bandwidth, _latency, _cpu_usage, _cpu_quota);
 		}
 	}
 	return 0;

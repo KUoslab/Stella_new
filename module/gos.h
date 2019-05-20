@@ -39,8 +39,15 @@
 /*
    Define Area
 */
+<<<<<<< HEAD
 
 #define VCPU_NUM 2
+=======
+/*
+#define VCPU_NUM 4
+*/
+#define VCPU_NUM 4
+>>>>>>> 4955a39570570feb6f1f5ec46642a89702d47cd7
 #define VM_NUM 10 
 #define SYS_CPU_UTIL_THRESHOLD 8500 /* 8500 = 85.00% */
 #define WORK_CONSERVING -1
@@ -120,6 +127,7 @@ struct gos_vm_info {
 	struct disk_stat now_io_stat;
 	struct vm_perf now_perf;
 	void *priv_data;
+	
 };
 
 /*

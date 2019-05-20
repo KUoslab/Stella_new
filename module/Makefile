@@ -1,4 +1,5 @@
 obj-m := gos_start.o gos.o disk_stat.o vif.o
+##inserted cpu_stat.o
 
 KDIR := /lib/modules/$(shell uname -r)/build
 #KBUILD_EXTRA_SYMBOLS += ./Module.symvers
