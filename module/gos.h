@@ -41,6 +41,7 @@
 */
 <<<<<<< HEAD
 
+<<<<<<< HEAD
 #define VCPU_NUM 2
 <<<<<<< HEAD
 =======
@@ -49,6 +50,9 @@
 */
 #define VCPU_NUM 4
 >>>>>>> 4955a39570570feb6f1f5ec46642a89702d47cd7
+=======
+#define VCPU_NUM 1
+>>>>>>> c4fca867ea796663c5d23f04449deaa22d0d7bee
 #define VM_NUM 10 
 =======
 #define VM_NUM 2

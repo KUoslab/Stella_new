@@ -4,7 +4,6 @@
 #define PCPU_NUM 10
 #define MAX_QUOTA(period) (PCPU_NUM * period)
 #define INTERVAL 3000
-
 #define DRIVER_DESC "Guarantee of SLA (GoS)"
 
 #define PROC_NAME "gos_vm_info"
@@ -258,6 +257,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 	char *vm_name, *sla_option;
 	long _cpu_quota=0;
 	int i = 0;
+<<<<<<< HEAD
         long cpu_quota;
 	unsigned long iops, bandwidth, latency, pps;
 	
@@ -271,6 +271,12 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 
 	seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\tCPU quota\tB_IOPS\tB_PPS\tB_Bandwidth\tB_Latency\tCPU Usage\n");
 >>>>>>> 1cb5d62b1fe80fe5f57e398f0f952dadfcdde73e
+=======
+
+	unsigned long slo_iops, slo_pps, slo_bandwidth, slo_latency, slo_cpu_usage;	
+	long cpu_quota;
+	seq_puts(m, "VM_NAME\t\tSLO Option\tSLO Value\tSLO Percentage\tSLO IOPS\tSLO PPS\t\tSLO Bandwidth\tSLO latency\tSLO CPU Usage\tCPU Quota\n");
+>>>>>>> c4fca867ea796663c5d23f04449deaa22d0d7bee
 
 	for(i = 0 ; i < VM_NUM ; i++)
 	{
@@ -306,9 +312,22 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 				seq_printf(m, "%s\t%s\t%d\t%d.%d\n", vm_name, sla_option, sla_value, int_sla, flt_sla);
 =======
 
+<<<<<<< HEAD
 					/*  Collect of performance statistic and CPU quota  */
 				before_sla = curr_sla->now_sla / 100;
 				after_sla = curr_sla->now_sla % 100
+=======
+				slo_iops = gos_vm_list[i]->now_perf.iops;
+				slo_pps = gos_vm_list[i]->now_perf.credit;
+				slo_bandwidth = gos_vm_list[i]->now_perf.bandwidth;
+				slo_latency = gos_vm_list[i]->now_perf.latency;
+				slo_cpu_usage = gos_vm_list[i]->now_perf.cpu_usage;
+				cpu_quota = curr_sla->now_quota;
+
+				seq_printf(m, "%s\t%s\t\t%d\t\t%d.%d\t\t%ld\t\t%ld\t\t%ld\t\t%ld\t\t%ld\t\t%lu\n", vm_name, sla_option, 
+					sla_value, int_sla, flt_sla, slo_iops, slo_pps, slo_bandwidth, slo_latency, slo_cpu_usage, cpu_quota);
+
+>>>>>>> c4fca867ea796663c5d23f04449deaa22d0d7bee
 
 				sla_option = curr_sla->sla_option;
         cpu_quota = curr_sla->now_quota;
