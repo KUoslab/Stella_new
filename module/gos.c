@@ -124,6 +124,9 @@ void feedback_controller(unsigned long elapsed_time)
 			/* 100.00% = 10000, gos_interval is 3s*/
 			vm_cpu_util = (now_cpu_time - prev_cpu_time) * 10000 / (gos_interval / 1000000);
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 46f4bdf17dfd81a9639ce97c473c7a62cde11f4b
 			gos_vm_list[i]->now_perf.cpu_usage = vm_cpu_util;
 
 
@@ -140,9 +143,12 @@ void feedback_controller(unsigned long elapsed_time)
 				continue;
 			}
 
+<<<<<<< HEAD
 =======
             if(vm_cpu_util!=0) _vm_cpu_util[i]=vm_cpu_util;
 >>>>>>> 768c5d8596b09e688a4adbb715bd4414c9e963db
+=======
+>>>>>>> 46f4bdf17dfd81a9639ce97c473c7a62cde11f4b
 
 			if(vm_cpu_util!=0){
 				vm_cpu_util_out[i]=vm_cpu_util;
@@ -268,6 +274,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         long cpu_quota;
 	unsigned long iops, bandwidth, latency, pps;
 	
@@ -297,6 +304,13 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
     long cpu_quota=0;
 
 >>>>>>> 768c5d8596b09e688a4adbb715bd4414c9e963db
+=======
+	long cpu_quota;
+	unsigned long iops, bandwidth, latency, pps, cpu_util;
+
+	
+	seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\tCPU quota\tDisk-IOPS\tDisk-Bandwidth\tDisk-Latency\tPPS\tCPU Util\n");
+>>>>>>> 46f4bdf17dfd81a9639ce97c473c7a62cde11f4b
 
 	for(i = 0 ; i < VM_NUM ; i++)
 	{
@@ -330,6 +344,7 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 				int_sla = curr_sla->now_sla / 100;
 				flt_sla = curr_sla->now_sla % 100;
 				sla_option = curr_sla->sla_option;
+<<<<<<< HEAD
 				
 				// seq_puts(m, "VM_NAME\tSLO Option\tSLO Value\tSLO Percentage\n");
 				seq_printf(m, "%s\t%s\t%d\t%d.%d\n", vm_name, sla_option, sla_value, int_sla, flt_sla);
@@ -380,6 +395,19 @@ static int gos_vm_info_show(struct seq_file *m, void *v)
 					   iops, pps, bandwidth, latency, cpu_usage/100, cpu_usage%100);
 
 >>>>>>> f0d07b1adf2e39ea00637ea22d3a1db7843570c7
+=======
+				cpu_quota = curr_sla->now_quota;
+				iops = gos_vm_list[i]->now_perf.iops;
+				bandwidth = gos_vm_list[i]->now_perf.bandwidth;
+				latency = gos_vm_list[i]->now_perf.latency;
+				pps = gos_vm_list[i]->now_perf.credit;
+				cpu_util = gos_vm_list[i]->now_perf.cpu_usage;
+
+				seq_printf(m, "%s\t%s\t\t%d\t\t%d.%d\t\t%d\t\t%lu\t\t%lu\t\t%lu\t\t%lu\t%lu.%lu\n", vm_name, sla_option,
+					sla_value, int_sla, flt_sla, cpu_quota, iops, bandwidth, latency, pps, cpu_util / 100, cpu_util % 100);
+
+
+>>>>>>> 46f4bdf17dfd81a9639ce97c473c7a62cde11f4b
 			}
 
 <<<<<<< HEAD

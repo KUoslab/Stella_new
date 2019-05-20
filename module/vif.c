@@ -171,10 +171,14 @@ static void quota_control(unsigned long data)
 					curr_sla->prev_sla = curr_sla->now_sla;
 					curr_sla->now_sla = perf * 10000 / goal;
 <<<<<<< HEAD
+<<<<<<< HEAD
 					gos_vm_list[i]->now_perf.credit = perf;						////
 =======
 					gos_vm_list[i]->now_perf.credit = perf;
 >>>>>>> f0d07b1adf2e39ea00637ea22d3a1db7843570c7
+=======
+					gos_vm_list[i]->now_perf.credit = perf;
+>>>>>>> 46f4bdf17dfd81a9639ce97c473c7a62cde11f4b
 					break;
 				}
 			}
