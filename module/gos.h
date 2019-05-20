@@ -42,6 +42,7 @@
 <<<<<<< HEAD
 
 #define VCPU_NUM 2
+<<<<<<< HEAD
 =======
 /*
 #define VCPU_NUM 4
@@ -49,6 +50,9 @@
 #define VCPU_NUM 4
 >>>>>>> 4955a39570570feb6f1f5ec46642a89702d47cd7
 #define VM_NUM 10 
+=======
+#define VM_NUM 2
+>>>>>>> 1cb5d62b1fe80fe5f57e398f0f952dadfcdde73e
 #define SYS_CPU_UTIL_THRESHOLD 8500 /* 8500 = 85.00% */
 #define WORK_CONSERVING -1
 #define SLA_GOAL 10000
@@ -58,7 +62,7 @@
 #define INC_DEC_SPEED 4
 
 enum gos_type {cpu, ssd, network};
-enum sla {c_usg, b_bw, b_iops, b_lat, n_mincredit, n_maxcredit, n_weight};
+enum sla {b_bw, b_iops, b_lat, c_usg, n_mincredit, n_maxcredit, n_weight};
 
 /*
    Structure Area
@@ -81,7 +85,7 @@ struct disk_stat {
 };
 
 struct gos_vm_sla {
-	/* 
+	/*
 	 * SLA info
 	 * SLA : 100.00% = 10000
 	 */
@@ -119,7 +123,7 @@ struct gos_vm_info {
 	struct task_struct *vhost;
 	struct task_struct *iothread;
 
-	/* 
+	/*
 	 * status value used by other modules which measure
 	 * performance stats.
 	 */
@@ -134,7 +138,7 @@ struct gos_vm_info {
    Extern Area
 */
 
-extern int add_network_sla(struct gos_vm_info *tmp_vm_info, struct gos_vm_sla *tmp_vm_sla, long long vhost_pid); 
+extern int add_network_sla(struct gos_vm_info *tmp_vm_info, struct gos_vm_sla *tmp_vm_sla, long long vhost_pid);
 
 extern void cal_io_SLA_percent(int vm_num, struct gos_vm_sla *curr_sla);
 extern void cal_cpu_SLA(int vm_num);

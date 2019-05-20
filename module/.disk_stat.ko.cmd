@@ -1,1 +1,0 @@
-cmd_/home/lee/Stella_new/module/disk_stat.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/lee/Stella_new/module/disk_stat.ko /home/lee/Stella_new/module/disk_stat.o /home/lee/Stella_new/module/disk_stat.mod.o

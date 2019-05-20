@@ -1,1 +1,0 @@
-cmd_/home/lee/Stella_new/module/gos.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/lee/Stella_new/module/gos.ko /home/lee/Stella_new/module/gos.o /home/lee/Stella_new/module/gos.mod.o
